@@ -1,15 +1,18 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
+  AlertCircle,
   ArrowRight,
   Brain,
   Check,
   Circle,
   Clock3,
-  Pause,
+  Loader2,
+  Play,
   Plus,
   RotateCcw,
   Sparkles,
 } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageIntro, QualityCallout, SectionHeader, iconForTone } from "@/components/dashboard-ui";
 import {
@@ -20,6 +23,8 @@ import {
 } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { useActiveWorkflowPlan } from "@/lib/workflow-store";
+import { runPipelineFn } from "@/lib/run-pipeline";
+import { setPipelineResult } from "@/lib/pipeline-store";
 
 export const Route = createFileRoute("/workflow")({
   head: () => ({
@@ -45,10 +50,53 @@ export const Route = createFileRoute("/workflow")({
 
 export function WorkflowPage() {
   const plan = useActiveWorkflowPlan();
+  const navigate = useNavigate();
+  const [running, setRunning] = useState(false);
+  const [pipelineError, setPipelineError] = useState<string | null>(null);
 
   const title = plan ? plan.title : "Indian SaaS companies hiring Java backend developers";
-  const eyebrow = plan ? `Running · ${plan.id}` : "Running · DR-1048";
+  const eyebrow = running
+    ? `Executing · ${plan?.id ?? "DR-1048"}`
+    : plan
+      ? `Ready · ${plan.id}`
+      : "Running · DR-1048";
   const description = plan ? plan.request : DEMO_REQUEST;
+
+  async function handleRunPipeline() {
+    if (!plan || running) return;
+    setRunning(true);
+    setPipelineError(null);
+
+    try {
+      const res = await runPipelineFn({
+        data: {
+          planId: plan.id,
+          title: plan.title,
+          request: plan.request,
+          requiredFields: Array.isArray(plan.understanding.requiredFields)
+            ? plan.understanding.requiredFields
+            : [String(plan.understanding.requiredFields)],
+          geography: plan.understanding.geography,
+          industry: plan.understanding.industry,
+          target: plan.understanding.target,
+        },
+      });
+
+      if (!res.success) {
+        setPipelineError(res.error ?? "Pipeline execution failed.");
+        setRunning(false);
+        return;
+      }
+
+      setPipelineResult(res.data);
+      await navigate({ to: "/datasets" });
+    } catch (err: unknown) {
+      setPipelineError(
+        err instanceof Error ? err.message : "An unexpected error occurred during pipeline execution.",
+      );
+      setRunning(false);
+    }
+  }
 
   const understandingItems: [string, string][] = plan
     ? [
@@ -87,33 +135,45 @@ export function WorkflowPage() {
         actions={
           <>
             <Link to="/requests">
-              <Button variant="outline">
+              <Button variant="outline" disabled={running}>
                 <Plus className="size-4" />
                 New request
               </Button>
             </Link>
-            <Button variant="outline">
-              <Pause className="size-4" />
-              Pause
-            </Button>
-            <Button variant="outline">
-              <RotateCcw className="size-4" />
-              Restart
-            </Button>
+            {plan ? (
+              <Button onClick={handleRunPipeline} disabled={running}>
+                {running ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Collecting data…
+                  </>
+                ) : (
+                  <>
+                    <Play className="size-4" />
+                    Run pipeline
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button variant="outline" disabled>
+                <RotateCcw className="size-4" />
+                Restart
+              </Button>
+            )}
           </>
         }
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
         {[
-          ["Progress", plan ? "15%" : "82%"],
-          ["Records", plan ? "Planning" : "47 → 36 unique"],
-          ["Quality score", plan ? "Evaluating" : "88 / 100"],
-          ["Elapsed", plan ? "Just now" : "29m 06s"],
+          ["Progress", running ? "Executing…" : plan ? "Ready to run" : "82%"],
+          ["Records", running ? "Collecting…" : plan ? "—" : "47 → 36 unique"],
+          ["Quality score", running ? "Processing…" : plan ? "—" : "88 / 100"],
+          ["Elapsed", running ? "Running…" : plan ? "—" : "29m 06s"],
         ].map(([label, value]) => (
           <div className="border border-border bg-card p-4" key={label}>
             <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-            <p className="mt-2 text-xl font-semibold tabular-nums">{value}</p>
+            <p className={cn("mt-2 text-xl font-semibold tabular-nums", running && "text-primary animate-pulse")}>{value}</p>
           </div>
         ))}
       </div>
@@ -147,44 +207,61 @@ export function WorkflowPage() {
         <div className="space-y-6">
           <section className="border border-border bg-card">
             <SectionHeader title="Collection blueprint" subtitle={blueprintSubtitle} />
-            <div className="px-5 py-2">
-              {stages.map((stage, index) => (
-                <div
-                  key={`${stage.name}-${index}`}
-                  className="relative flex gap-4 py-4 after:absolute after:bottom-0 after:left-[15px] after:top-10 after:w-px after:bg-border last:after:hidden"
-                >
-                  <span
-                    className={cn(
-                      "z-10 flex size-8 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
-                      stage.status === "complete" &&
-                        "border-success bg-success text-success-foreground",
-                      stage.status === "active" && "border-primary bg-primary-muted text-primary",
-                      stage.status === "pending" &&
-                        "border-border bg-background text-muted-foreground",
-                    )}
-                  >
-                    {stage.status === "complete" ? (
-                      <Check className="size-4" />
-                    ) : stage.status === "active" ? (
-                      <span className="size-2 animate-pulse rounded-full bg-primary" />
-                    ) : (
-                      <Circle className="size-3" />
-                    )}
-                  </span>
-                  <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium">
-                        <span className="mr-1.5 text-muted-foreground">{index + 1}.</span>
-                        {stage.name}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{stage.detail}</p>
-                    </div>
-                    <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                      {stage.count}
-                    </span>
+
+            {pipelineError && (
+              <div className="mx-5 mt-4 rounded-md border border-destructive/40 bg-danger-muted p-4 text-xs text-destructive">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Pipeline Execution Error</p>
+                    <p className="mt-1 leading-5 text-muted-foreground">{pipelineError}</p>
                   </div>
                 </div>
-              ))}
+              </div>
+            )}
+
+            <div className="px-5 py-2">
+              {stages.map((stage, index) => {
+                const isExecuting = running && stage.status === "pending";
+                return (
+                  <div
+                    key={`${stage.name}-${index}`}
+                    className="relative flex gap-4 py-4 after:absolute after:bottom-0 after:left-[15px] after:top-10 after:w-px after:bg-border last:after:hidden"
+                  >
+                    <span
+                      className={cn(
+                        "z-10 flex size-8 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
+                        stage.status === "complete" &&
+                          "border-success bg-success text-success-foreground",
+                        (stage.status === "active" || (running && index === stages.findIndex((s) => s.status === "pending"))) &&
+                          "border-primary bg-primary-muted text-primary",
+                        stage.status === "pending" && !isExecuting &&
+                          "border-border bg-background text-muted-foreground",
+                      )}
+                    >
+                      {stage.status === "complete" ? (
+                        <Check className="size-4" />
+                      ) : stage.status === "active" || (running && index === stages.findIndex((s) => s.status === "pending")) ? (
+                        <span className="size-2 animate-pulse rounded-full bg-primary" />
+                      ) : (
+                        <Circle className="size-3" />
+                      )}
+                    </span>
+                    <div className="flex min-w-0 flex-1 items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium">
+                          <span className="mr-1.5 text-muted-foreground">{index + 1}.</span>
+                          {stage.name}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{stage.detail}</p>
+                      </div>
+                      <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                        {stage.count}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
 

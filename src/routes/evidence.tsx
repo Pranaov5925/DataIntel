@@ -3,8 +3,10 @@ import { useMemo, useState } from "react";
 import { ArrowRight, Database, FileText, Globe, Quote } from "lucide-react";
 import { PageIntro, StatusBadge } from "@/components/dashboard-ui";
 import { RecordDetail } from "@/components/record-detail";
-import { datasetRows, sources } from "@/lib/mock-data";
+import { datasetRows, sources as mockSources } from "@/lib/mock-data";
+import type { DatasetRecord as MockDatasetRecord } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { usePipelineResult } from "@/lib/pipeline-store";
 
 export const Route = createFileRoute("/evidence")({
   head: () => ({
@@ -26,32 +28,49 @@ export const Route = createFileRoute("/evidence")({
   component: EvidencePage,
 });
 
-const items = datasetRows.flatMap((r) =>
-  r.evidence.map((e) => ({ ...e, recordId: r.id, company: r.company })),
-);
-
 function EvidencePage() {
+  const pipelineResult = usePipelineResult();
+
+  const activeRecords = pipelineResult ? pipelineResult.records : datasetRows;
+  const activeSources = pipelineResult ? pipelineResult.sources : mockSources;
+
+  const items = useMemo(
+    () =>
+      activeRecords.flatMap((r) =>
+        r.evidence.map((e) => ({ ...e, recordId: r.id, company: r.company })),
+      ),
+    [activeRecords],
+  );
+
+  const pageEyebrow = pipelineResult ? `Provenance · ${pipelineResult.planId}` : "Provenance · DR-1048";
+
   const [src, setSrc] = useState<string>("All");
   const list = useMemo(
     () => items.filter((i) => src === "All" || i.source.startsWith(src.split(" ")[0] ?? "")),
-    [src],
+    [src, items],
   );
-  const [key, setKey] = useState("R-001-Role");
-  const item = items.find((i) => `${i.recordId}-${i.field}` === key) ?? items[0]!;
-  const record = datasetRows.find((r) => r.id === item.recordId)!;
+  const [key, setKey] = useState("");
+  const firstKey = items[0] ? `${items[0].recordId}-${items[0].field}` : "";
+  const activeKey = key || firstKey;
+  const item = items.find((i) => `${i.recordId}-${i.field}` === activeKey) ?? items[0];
+  const record = item ? activeRecords.find((r) => r.id === item.recordId) : undefined;;
   return (
     <div>
       <PageIntro
-        eyebrow="Provenance · DR-1048"
-        title="Sources & evidence"
+        eyebrow={pageEyebrow}
+        title="Sources &amp; evidence"
         description="Follow any value back to the exact source text it was extracted from: Source → Evidence → Extracted value → Dataset record."
       />
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
         {[
-          ["94%", "Evidence coverage", "Values linked to a snippet"],
-          [String(items.length), "Field-level citations", "In the sample shown"],
-          ["2", "Open conflicts", "Awaiting review"],
-          ["9", "Sources used", "Careers pages & job boards"],
+          [
+            `${items.length > 0 ? Math.round((items.filter((i) => i.verification !== "Needs verification").length / items.length) * 100) : 0}%`,
+            "Evidence coverage",
+            "Values linked to a snippet",
+          ],
+          [String(items.length), "Field-level citations", "In this dataset"],
+          [String(pipelineResult ? pipelineResult.quality.conflicts : 2), "Open conflicts", "Awaiting review"],
+          [String(activeSources.length), "Sources used", "Careers pages & job boards"],
         ].map(([v, l, d]) => (
           <div key={l} className="border border-border bg-card p-5">
             <p className="text-2xl font-semibold">{v}</p>
@@ -72,7 +91,7 @@ function EvidencePage() {
         >
           All sources
         </button>
-        {sources.map((s) => (
+        {activeSources.map((s) => (
           <button
             key={s.name}
             onClick={() => setSrc(s.name)}
@@ -130,46 +149,52 @@ function EvidencePage() {
           </div>
         </section>
         <aside className="border-t border-border lg:border-t-0">
-          <div className="border-b border-border p-5">
-            <p className="text-[10px] font-semibold uppercase text-primary">Traceability chain</p>
-            <ol className="mt-4 space-y-2">
-              {[
-                [Globe, "Source", `${item.source}`, item.url],
-                [Quote, "Evidence", item.snippet, `Retrieved ${item.retrieved}`],
-                [FileText, "Extracted value", `${item.field}: ${item.value}`, item.verification],
-                [Database, "Dataset record", `${item.company} · ${record.role}`, item.recordId],
-              ].map(([Icon, label, main, sub], idx) => {
-                const C = Icon as typeof Globe;
-                return (
-                  <li key={String(label)}>
-                    <div className="flex gap-3 border border-border p-3">
-                      <C className="mt-0.5 size-4 shrink-0 text-primary" />
-                      <div className="min-w-0">
-                        <p className="text-[10px] uppercase text-muted-foreground">
-                          {String(label)}
-                        </p>
-                        <p
-                          className={cn(
-                            "mt-0.5 break-words text-xs font-medium",
-                            label === "Evidence" && "italic font-normal",
-                          )}
-                        >
-                          {String(main)}
-                        </p>
-                        <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                          {String(sub)}
-                        </p>
-                      </div>
-                    </div>
-                    {idx < 3 && (
-                      <ArrowRight className="mx-auto my-1 size-3 rotate-90 text-muted-foreground" />
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </div>
-          <RecordDetail record={record} />
+          {item && record ? (
+            <>
+              <div className="border-b border-border p-5">
+                <p className="text-[10px] font-semibold uppercase text-primary">Traceability chain</p>
+                <ol className="mt-4 space-y-2">
+                  {[
+                    [Globe, "Source", `${item.source}`, item.url],
+                    [Quote, "Evidence", item.snippet, `Retrieved ${item.retrieved}`],
+                    [FileText, "Extracted value", `${item.field}: ${item.value}`, item.verification],
+                    [Database, "Dataset record", `${item.company} · ${record.role}`, item.recordId],
+                  ].map(([Icon, label, main, sub], idx) => {
+                    const C = Icon as typeof Globe;
+                    return (
+                      <li key={String(label)}>
+                        <div className="flex gap-3 border border-border p-3">
+                          <C className="mt-0.5 size-4 shrink-0 text-primary" />
+                          <div className="min-w-0">
+                            <p className="text-[10px] uppercase text-muted-foreground">
+                              {String(label)}
+                            </p>
+                            <p
+                              className={cn(
+                                "mt-0.5 break-words text-xs font-medium",
+                                label === "Evidence" && "italic font-normal",
+                              )}
+                            >
+                              {String(main)}
+                            </p>
+                            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                              {String(sub)}
+                            </p>
+                          </div>
+                        </div>
+                        {idx < 3 && (
+                          <ArrowRight className="mx-auto my-1 size-3 rotate-90 text-muted-foreground" />
+                        )}
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+              <RecordDetail record={record as MockDatasetRecord} />
+            </>
+          ) : (
+            <div className="p-5 text-xs text-muted-foreground">Select an evidence item to trace it.</div>
+          )}
         </aside>
       </div>
     </div>

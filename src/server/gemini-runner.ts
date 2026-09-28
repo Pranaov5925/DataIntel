@@ -84,29 +84,39 @@ Return strictly a valid JSON object matching the requested schema. No markdown f
       });
     }
 
-    let response;
-    try {
-      response = await callModel(modelName);
-    } catch (primaryErr: unknown) {
-      const errStatus = (primaryErr as { status?: number }).status;
-      const errMsg = primaryErr instanceof Error ? primaryErr.message : String(primaryErr);
+    const FALLBACK_MODELS_WORKFLOW = [
+      "gemini-1.5-flash",
+      "gemini-1.5-flash-8b",
+    ];
 
-      // If primary model has 503 high demand or 404 retired, fall back to stable gemini-flash-lite-latest
-      if (
-        (errStatus === 503 ||
-          errStatus === 404 ||
-          errMsg.includes("503") ||
-          errMsg.includes("404")) &&
-        modelName !== "gemini-flash-lite-latest"
-      ) {
-        console.warn(
-          `Primary model ${modelName} returned ${errStatus ?? "error"}; falling back to gemini-flash-lite-latest...`,
-        );
-        response = await callModel("gemini-flash-lite-latest");
-      } else {
-        throw primaryErr;
+    function isRetryable(err: unknown): boolean {
+      const s = (err as { status?: number }).status;
+      const m = err instanceof Error ? err.message : String(err);
+      return (
+        s === 503 || s === 404 || s === 429 ||
+        m.includes("503") || m.includes("404") || m.includes("429") ||
+        m.includes("no longer available") || m.includes("quota") ||
+        m.includes("RESOURCE_EXHAUSTED") || m.includes("NOT_FOUND")
+      );
+    }
+
+    const modelsToTry = [modelName, ...FALLBACK_MODELS_WORKFLOW.filter((m) => m !== modelName)];
+    let response;
+    let lastErr: unknown;
+    for (const model of modelsToTry) {
+      try {
+        response = await callModel(model);
+        if (response) break;
+      } catch (err: unknown) {
+        lastErr = err;
+        if (isRetryable(err)) {
+          console.warn(`Model ${model} unavailable/quota exceeded – trying next fallback…`);
+          continue;
+        }
+        throw err;
       }
     }
+    if (!response) throw lastErr ?? new Error("All Gemini models failed to respond.");
 
     const responseText = response.text;
     if (!responseText) {

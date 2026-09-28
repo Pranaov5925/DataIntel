@@ -12,7 +12,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Confidence, PageIntro, StatusBadge } from "@/components/dashboard-ui";
 import { RecordDetail } from "@/components/record-detail";
-import { datasetRows, qualitySummary as q, type DatasetRecord } from "@/lib/mock-data";
+import { datasetRows, qualitySummary as mockQ, type DatasetRecord as MockDatasetRecord } from "@/lib/mock-data";
+import { usePipelineResult } from "@/lib/pipeline-store";
+import type { DatasetRecord as PipelineDatasetRecord } from "@/lib/pipeline-schema";
 
 export const Route = createFileRoute("/datasets")({
   head: () => ({
@@ -37,7 +39,7 @@ export const Route = createFileRoute("/datasets")({
 });
 
 const statuses = ["All", "Verified", "Review", "Conflict", "Incomplete"] as const;
-const cols: [keyof DatasetRecord, string][] = [
+const cols: [string, string][] = [
   ["company", "Company"],
   ["role", "Job Role"],
   ["location", "Location"],
@@ -49,17 +51,32 @@ const cols: [keyof DatasetRecord, string][] = [
   ["status", "Status"],
 ];
 
+// Unified record type for the table
+type AnyRecord = MockDatasetRecord | PipelineDatasetRecord;
+
 function DatasetsPage() {
+  const pipelineResult = usePipelineResult();
+
+  // Use real pipeline data if available, otherwise fall back to mock data
+  const rows_source: AnyRecord[] = pipelineResult ? pipelineResult.records : datasetRows;
+  const q = pipelineResult ? pipelineResult.quality : mockQ;
+  const pageTitle = pipelineResult ? pipelineResult.title : "Indian SaaS companies hiring Java backend developers";
+  const pageEyebrow = pipelineResult ? `Live dataset · ${pipelineResult.planId}` : "Live dataset · DR-1048";
+  const pageDescription = pipelineResult
+    ? "Every value remains traceable to source evidence. Conflicts are flagged, never silently resolved."
+    : "Every value remains traceable to source evidence. Conflicts are flagged, never silently resolved.";
+
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<(typeof statuses)[number]>("All");
-  const [sort, setSort] = useState<{ key: keyof DatasetRecord; dir: 1 | -1 }>({
+  const [sort, setSort] = useState<{ key: string; dir: 1 | -1 }>({
     key: "confidence",
     dir: -1,
   });
   const [selected, setSelected] = useState<string | null>(null);
+
   const rows = useMemo(
     () =>
-      datasetRows
+      rows_source
         .filter(
           (r) =>
             (status === "All" || r.status === status) &&
@@ -67,16 +84,21 @@ function DatasetsPage() {
               .toLowerCase()
               .includes(query.toLowerCase()),
         )
-        .sort((a, b) => ((a[sort.key] ?? "") > (b[sort.key] ?? "") ? 1 : -1) * sort.dir),
-    [query, status, sort],
+        .sort((a, b) => {
+          const aVal = (a as Record<string, unknown>)[sort.key] ?? "";
+          const bVal = (b as Record<string, unknown>)[sort.key] ?? "";
+          return (aVal > bVal ? 1 : -1) * sort.dir;
+        }),
+    [query, status, sort, rows_source],
   );
-  const record = datasetRows.find((r) => r.id === selected);
+
+  const record = rows_source.find((r) => r.id === selected);
   return (
     <div>
       <PageIntro
-        eyebrow="Live dataset · DR-1048"
-        title="Indian SaaS companies hiring Java backend developers"
-        description="Every value remains traceable to source evidence. Conflicts are flagged, never silently resolved."
+        eyebrow={pageEyebrow}
+        title={pageTitle}
+        description={pageDescription}
         actions={
           <Button variant="outline">
             <Download className="size-4" />
@@ -212,7 +234,7 @@ function DatasetsPage() {
         </div>
         {record && (
           <aside className="max-h-[80vh] overflow-y-auto border-l border-border">
-            <RecordDetail record={record} onClose={() => setSelected(null)} />
+            <RecordDetail record={record as MockDatasetRecord} onClose={() => setSelected(null)} />
           </aside>
         )}
       </div>
@@ -224,8 +246,8 @@ function DatasetsPage() {
           <Button variant="outline" size="sm" disabled>
             Previous
           </Button>
-          <span className="text-foreground">1 / 5</span>
-          <Button variant="outline" size="sm">
+          <span className="text-foreground">1 / {Math.max(1, Math.ceil(q.unique / 10))}</span>
+          <Button variant="outline" size="sm" disabled={rows.length <= 10}>
             Next
           </Button>
         </div>
@@ -233,3 +255,4 @@ function DatasetsPage() {
     </div>
   );
 }
+
