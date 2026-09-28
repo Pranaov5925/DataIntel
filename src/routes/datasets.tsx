@@ -110,9 +110,9 @@ function DatasetsPage() {
     const conflicts = rows_source.filter((r) => r.conflict != null || r.status === "Conflict").length;
 
     const baseCollected =
-      persistedRun?.quality.collected || pipelineResult?.quality.collected || Math.round(rows_source.length * 1.3);
+      persistedRun?.quality.collected ?? pipelineResult?.quality.collected ?? rows_source.length;
     const baseDuplicates =
-      persistedRun?.quality.duplicates || pipelineResult?.quality.duplicates || 11;
+      persistedRun?.quality.duplicates ?? pipelineResult?.quality.duplicates ?? 0;
 
     return {
       collected: baseCollected,

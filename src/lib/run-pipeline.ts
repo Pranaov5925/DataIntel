@@ -2,6 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { PipelineResult } from "./pipeline-schema";
 
+const workflowStepInputSchema = z.object({
+  name: z.string(),
+  detail: z.string(),
+  status: z.enum(["complete", "active", "pending"]).optional(),
+  count: z.string().optional(),
+});
+
 const inputSchema = z.object({
   planId: z.string(),
   title: z.string(),
@@ -10,6 +17,7 @@ const inputSchema = z.object({
   geography: z.string(),
   industry: z.string(),
   target: z.string(),
+  stages: z.array(workflowStepInputSchema).optional(),
 });
 
 export type RunPipelineInput = z.infer<typeof inputSchema>;

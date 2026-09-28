@@ -92,10 +92,10 @@ function EvidencePage() {
   const coveragePercent =
     items.length > 0
       ? Math.round((items.filter((i) => i.verification !== "Needs verification").length / items.length) * 100)
-      : 78;
+      : 0;
 
   const openConflictsCount =
-    persistedRun?.quality.conflicts ?? (pipelineResult ? pipelineResult.quality.conflicts : 2);
+    persistedRun?.quality.conflicts ?? (pipelineResult ? pipelineResult.quality.conflicts : 0);
 
   return (
     <div>

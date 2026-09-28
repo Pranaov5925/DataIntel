@@ -12,23 +12,13 @@ export type RunGeminiWorkflowInput = {
 };
 
 export type RunGeminiWorkflowResult =
-  { success: true; data: CollectionPlan } | { success: false; error: string };
-
-function isRetryable(err: unknown): boolean {
-  const s = (err as { status?: number }).status;
-  const m = err instanceof Error ? err.message : String(err);
-  return (
-    s === 503 || s === 404 || s === 429 ||
-    m.includes("503") || m.includes("404") || m.includes("429") ||
-    m.includes("no longer available") || m.includes("quota") ||
-    m.includes("RESOURCE_EXHAUSTED") || m.includes("NOT_FOUND")
-  );
-}
+  | { success: true; data: CollectionPlan }
+  | { success: false; error: string };
 
 export async function runGeminiWorkflow(
   input: RunGeminiWorkflowInput,
 ): Promise<RunGeminiWorkflowResult> {
-  // Reload .env dynamically so user changes in .env take effect immediately without restarting the dev server
+  // Reload .env dynamically so user changes in .env take effect immediately
   dotenv.config({ override: true });
 
   const rawKey = process.env["GEMINI_API_KEY"]?.trim() || "";
@@ -41,13 +31,9 @@ export async function runGeminiWorkflow(
     };
   }
 
+  // Strictly gemini-3.8-flash per requirement #1
   const rawModel = process.env["GEMINI_MODEL"]?.trim() || "gemini-3.8-flash";
-  let modelName = rawModel.replace(/^["']|["']$/g, "").trim() || "gemini-3.8-flash";
-
-  // gemini-2.5-flash was deprecated for new users by Google in favor of gemini-3.8-flash
-  if (modelName === "gemini-2.5-flash") {
-    modelName = "gemini-3.8-flash";
-  }
+  const modelName = rawModel.replace(/^["']|["']$/g, "").trim() || "gemini-3.8-flash";
 
   const systemInstruction = `You are an AI Research Architect and Data Collection Planner for DataIntel, an enterprise AI Data Intelligence Platform.
 Your mission is to analyze any natural-language data collection request and generate:
@@ -66,8 +52,8 @@ Your mission is to analyze any natural-language data collection request and gene
    - Collect: Gather candidate listings/records from identified sources
    - Extract: Extract and structure the required fields
    - Clean: Clean, normalize, and standardize extracted values
-   - Validate: Validate source evidence and provenance citations
    - Deduplicate: Merge matching records found across multiple sources
+   - Validate: Validate source evidence and provenance citations
    - Identify gaps: Flag missing fields or conflicting values between sources
    - Verify: Targeted adaptive verification for missing/conflicting records
    - Publish: Final dataset publishing with audit trail and confidence ratings
@@ -84,57 +70,41 @@ Return strictly a valid JSON object matching the requested schema. No markdown f
     const ai = new GoogleGenAI({ apiKey });
     const prompt = `User Data Collection Request:\n"${input.request}"\n\nPreferences:\n${JSON.stringify(input.preferences ?? {}, null, 2)}`;
 
-    async function callModel(model: string) {
-      return await ai.models.generateContent({
-        model,
-        contents: prompt,
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-        },
-      });
-    }
+    // Retry transient 503 (high demand spikes) on gemini-3.8-flash only
+    let responseText = "";
+    let lastError: unknown = null;
 
-    const FALLBACK_MODELS_WORKFLOW = [
-      "gemini-1.5-flash",
-      "gemini-1.5-flash-8b",
-    ];
-
-    function isRetryable(err: unknown): boolean {
-      const s = (err as { status?: number }).status;
-      const m = err instanceof Error ? err.message : String(err);
-      return (
-        s === 503 || s === 404 || s === 429 ||
-        m.includes("503") || m.includes("404") || m.includes("429") ||
-        m.includes("no longer available") || m.includes("quota") ||
-        m.includes("RESOURCE_EXHAUSTED") || m.includes("NOT_FOUND")
-      );
-    }
-
-    const modelsToTry = [modelName, ...FALLBACK_MODELS_WORKFLOW.filter((m) => m !== modelName)];
-    let response;
-    let lastErr: unknown;
-    for (const model of modelsToTry) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
       try {
-        response = await callModel(model);
-        if (response) break;
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            systemInstruction,
+            responseMimeType: "application/json",
+          },
+        });
+        responseText = response.text ?? "";
+        if (responseText) break;
       } catch (err: unknown) {
-        lastErr = err;
-        if (isRetryable(err)) {
-          console.warn(`Model ${model} unavailable/quota exceeded – trying next fallback…`);
+        lastError = err;
+        const status = (err as { status?: number }).status;
+        const msg = err instanceof Error ? err.message : String(err);
+        const is503 = status === 503 || msg.includes("503") || msg.includes("UNAVAILABLE");
+
+        if (is503 && attempt < 3) {
+          console.warn(`[gemini-3.8-flash] 503 high demand spike on attempt ${attempt}. Retrying in ${attempt * 2}s...`);
+          await new Promise((r) => setTimeout(r, attempt * 2000));
           continue;
         }
+        // Non-transient or final attempt: rethrow directly, NO fallback models
         throw err;
       }
     }
-    if (!response) {
-      console.warn("All Gemini API models hit rate limits or were unavailable. Falling back to structured local planning generator.");
-      return generateFallbackPlan(input);
-    }
 
-    const responseText = response.text;
     if (!responseText) {
-      return generateFallbackPlan(input);
+      const errMsg = lastError instanceof Error ? lastError.message : "Empty response from Gemini 3.8 Flash";
+      return { success: false, error: `Gemini 3.8 Flash returned empty response: ${errMsg}` };
     }
 
     // Strip markdown code fences if Gemini enclosed the response in ```json ... ```
@@ -147,14 +117,20 @@ Return strictly a valid JSON object matching the requested schema. No markdown f
     let parsedJson: unknown;
     try {
       parsedJson = JSON.parse(cleanedJson);
-    } catch {
-      return generateFallbackPlan(input);
+    } catch (parseErr) {
+      return {
+        success: false,
+        error: `Failed to parse structured JSON from Gemini 3.8 Flash: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}`,
+      };
     }
 
     const validated = geminiWorkflowResponseSchema.safeParse(parsedJson);
     if (!validated.success) {
       console.error("Zod validation error:", validated.error.format());
-      return generateFallbackPlan(input);
+      return {
+        success: false,
+        error: `Workflow generation validation failed: ${validated.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+      };
     }
 
     const planId = `DR-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -174,11 +150,7 @@ Return strictly a valid JSON object matching the requested schema. No markdown f
       data: finalCheck,
     };
   } catch (err: unknown) {
-    console.error("Gemini API execution error:", err);
-    if (isRetryable(err)) {
-      console.warn("Gemini quota exhausted or service unavailable. Returning fallback collection plan.");
-      return generateFallbackPlan(input);
-    }
+    console.error("Gemini 3.8 Flash workflow generation error:", err);
 
     let message = err instanceof Error ? err.message : String(err);
     try {
@@ -195,96 +167,7 @@ Return strictly a valid JSON object matching the requested schema. No markdown f
 
     return {
       success: false,
-      error: message,
+      error: `Gemini 3.8 Flash error: ${message}`,
     };
   }
-}
-
-function generateFallbackPlan(input: RunGeminiWorkflowInput): RunGeminiWorkflowResult {
-  const planId = `DR-${Math.floor(1000 + Math.random() * 9000)}`;
-  const isJava = input.request.toLowerCase().includes("java");
-  const isSaaS = input.request.toLowerCase().includes("saas");
-
-  const title = isJava && isSaaS
-    ? "Indian SaaS companies hiring Java backend developers"
-    : input.request.length > 50
-      ? input.request.slice(0, 47) + "…"
-      : input.request;
-
-  const plan: CollectionPlan = {
-    id: planId,
-    title,
-    request: input.request,
-    understanding: {
-      objective: `Collect verified data for: ${input.request}`,
-      target: isJava ? "Job openings" : "Entities",
-      geography: input.preferences?.["geography"] || "India",
-      industry: isSaaS ? "SaaS" : "Technology",
-      constraints: isJava ? ["Java backend roles", "Active listings"] : ["Verified sources"],
-      requiredFields: [
-        "Company",
-        "Role",
-        "Location",
-        "Experience",
-        "Salary",
-        "Company Size",
-        "Source",
-      ],
-      freshness: "Listings active in the last 30 days",
-      searchIntent: "Competitive talent market mapping and compensation intelligence",
-    },
-    stages: [
-      {
-        name: "Discover permitted primary sources",
-        detail: "Identify company career pages, LinkedIn, Naukri, Cutshort, and Glassdoor",
-        status: "complete",
-        count: "9 sources",
-      },
-      {
-        name: "Collect candidate records",
-        detail: "Crawl active job openings matching Java backend developer criteria",
-        status: "active",
-        count: "47 listings",
-      },
-      {
-        name: "Extract structured record attributes",
-        detail: "Map role, company, location, experience range, salary, and company size",
-        status: "pending",
-        count: "7 fields",
-      },
-      {
-        name: "Validate source evidence & citations",
-        detail: "Link every extracted value directly to source URLs and quote snippets",
-        status: "pending",
-        count: "31 valid",
-      },
-      {
-        name: "Deduplicate multi-board postings",
-        detail: "Merge duplicate postings published across careers portals and job boards",
-        status: "pending",
-        count: "−11 dupes",
-      },
-      {
-        name: "Flag conflicts and information gaps",
-        detail: "Detect discrepancies in company size or unlisted compensation packages",
-        status: "pending",
-        count: "29 gaps",
-      },
-      {
-        name: "Targeted adaptive verification",
-        detail: "Execute follow-up searches on salary-bearing secondary sources",
-        status: "pending",
-        count: "78%",
-      },
-      {
-        name: "Publish final audited dataset",
-        detail: "Compile verified dataset with confidence scores and provenance trail",
-        status: "pending",
-        count: "36 unique",
-      },
-    ],
-    createdAt: new Date().toISOString(),
-  };
-
-  return { success: true, data: plan };
 }

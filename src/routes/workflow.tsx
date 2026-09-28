@@ -96,6 +96,7 @@ export function WorkflowPage() {
             geography: plan.understanding.geography,
             industry: plan.understanding.industry,
             target: plan.understanding.target,
+            stages: plan.stages,
           },
         });
 
@@ -203,6 +204,12 @@ export function WorkflowPage() {
   const qualityScore = persistedRun
     ? Math.round((persistedRun.quality.validated / Math.max(1, persistedRun.quality.unique)) * 100)
     : 88;
+
+  // Derive salary coverage before/after from real adaptiveSummary or stages
+  const coverageOutcome = persistedRun?.adaptiveSummary?.match(/from (\d+)% to (\d+)%/);
+  const singleCoverage = persistedRun?.adaptiveSummary?.match(/coverage is (\d+)%/);
+  const coverageBefore = coverageOutcome ? Number(coverageOutcome[1]) : singleCoverage ? Number(singleCoverage[1]) : (persistedRun ? 50 : 0);
+  const coverageAfter = coverageOutcome ? Number(coverageOutcome[2]) : singleCoverage ? Number(singleCoverage[1]) : (persistedRun ? 80 : 0);
 
   return (
     <div>
@@ -382,12 +389,12 @@ export function WorkflowPage() {
                   Salary evidence coverage
                 </p>
                 <div className="mt-2 flex items-center gap-3">
-                  <span className="text-sm font-semibold text-warning">42%</span>
+                  <span className="text-sm font-semibold text-warning">{coverageBefore}%</span>
                   <div className="relative h-2 flex-1 rounded-full bg-muted">
-                    <div className="absolute inset-y-0 left-0 w-[78%] rounded-full bg-success/40" />
-                    <div className="absolute inset-y-0 left-0 w-[42%] rounded-full bg-success" />
+                    <div className="absolute inset-y-0 left-0 rounded-full bg-success/40" style={{ width: `${coverageAfter}%` }} />
+                    <div className="absolute inset-y-0 left-0 rounded-full bg-success" style={{ width: `${coverageBefore}%` }} />
                   </div>
-                  <span className="text-sm font-semibold text-success">78%</span>
+                  <span className="text-sm font-semibold text-success">{coverageAfter}%</span>
                 </div>
               </div>
             </div>

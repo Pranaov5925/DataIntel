@@ -47,9 +47,9 @@ export const getHistoryDataFn = createServerFn({ method: "GET" }).handler(
         prompt: req.prompt,
         status: req.status === "completed" ? "Complete" : req.status === "running" ? "Running" : "Needs review",
         updated: req.updatedAt,
-        records: latestRun?.records.length ?? 36,
-        quality: latestRun ? Math.round((latestRun.quality.validated / Math.max(1, latestRun.quality.unique)) * 100) : 88,
-        progress: req.status === "completed" ? 100 : 82,
+        records: latestRun?.records.length ?? 0,
+        quality: latestRun ? Math.round((latestRun.quality.validated / Math.max(1, latestRun.quality.unique)) * 100) : 0,
+        progress: req.status === "completed" ? 100 : req.status === "running" ? 60 : 0,
       };
     });
 
@@ -87,7 +87,7 @@ export const getOverviewDataFn = createServerFn({ method: "GET" }).handler(
     const totalCollected = store.runs.reduce((acc, r) => acc + r.quality.collected, 0);
     const avgQuality = activeRun
       ? Math.round((activeRun.quality.validated / Math.max(1, activeRun.quality.unique)) * 100)
-      : 88;
+      : 0;
 
     const distinctSources = new Set(
       store.runs.flatMap((r) => r.sources.map((s) => s.name)),
@@ -99,30 +99,30 @@ export const getOverviewDataFn = createServerFn({ method: "GET" }).handler(
         id: req.id,
         name: req.name,
         status: (req.status === "running" ? "Running" : "Complete") as "Running" | "Complete",
-        progress: req.status === "running" ? 82 : 100,
-        records: run?.quality.unique ?? 36,
-        quality: run ? Math.round((run.quality.validated / Math.max(1, run.quality.unique)) * 100) : 88,
+        progress: req.status === "running" ? 60 : 100,
+        records: run?.quality.unique ?? 0,
+        quality: run ? Math.round((run.quality.validated / Math.max(1, run.quality.unique)) * 100) : 0,
         updated: req.updatedAt,
       };
     });
 
     return {
-      activeWorkflowsCount: store.requests.filter((r) => r.status === "running").length || 1,
-      totalRecordsCollected: totalCollected || 47,
+      activeWorkflowsCount: store.requests.filter((r) => r.status === "running").length,
+      totalRecordsCollected: totalCollected,
       averageQuality: avgQuality,
-      sourceCoverage: distinctSources.size || 9,
+      sourceCoverage: distinctSources.size,
       activeRun,
       attention: {
-        needingVerification: activeRun ? activeRun.records.filter((r) => r.status === "Review").length : 5,
-        conflicts: activeRun ? activeRun.quality.conflicts : 2,
-        incomplete: activeRun ? activeRun.quality.incomplete : 3,
+        needingVerification: activeRun ? activeRun.records.filter((r) => r.status === "Review").length : 0,
+        conflicts: activeRun ? activeRun.quality.conflicts : 0,
+        incomplete: activeRun ? activeRun.quality.incomplete : 0,
         coveragePercent: activeRun
           ? Math.round(
               (activeRun.records.flatMap((r) => r.evidence).filter((e) => e.verification !== "Needs verification").length /
                 Math.max(1, activeRun.records.flatMap((r) => r.evidence).length)) *
                 100,
             )
-          : 78,
+          : 0,
       },
       tasks,
     };

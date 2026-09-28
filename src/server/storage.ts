@@ -389,40 +389,74 @@ export async function rerunWorkflow(
   const nextRunNumber = (prevRun?.runNumber ?? 1) + 1;
   const newRunId = `RUN-${requestId}-v${nextRunNumber}`;
 
-  // Slight variance to simulate fresh web collection & incremental discovery
-  const baseRecords = prevRun ? [...prevRun.records] : [...datasetRows];
-  const additionallyFound = Math.min(3, Math.floor(Math.random() * 3) + 1);
+  // REQUIREMENT #13: Execute the REAL pipeline again with Gemini 3.8 Flash
+  // No copying old records, no fake status upgrades, no Math.random()
+  const { runGeminiPipeline } = await import("./pipeline-runner");
 
-  // Upgrade 1-2 records from Review to Verified if available
-  const upgradedRecords = baseRecords.map((r, idx) => {
-    if (r.status === "Review" && idx < 2) {
-      return {
-        ...r,
-        status: "Verified" as const,
-        confidence: Math.min(99, r.confidence + 4),
-      };
-    }
-    return r;
+  const understanding = prevRun?.understanding ?? {
+    objective: req.name,
+    target: "Job openings",
+    geography: "India",
+    industry: "SaaS",
+    constraints: [],
+    requiredFields: [
+      "Company",
+      "Role",
+      "Location",
+      "Experience",
+      "Salary",
+      "Company Size",
+      "Source",
+    ],
+    freshness: "Listings active in the last 30 days",
+    searchIntent: "Competitive intelligence and talent mapping",
+  };
+
+  const pipelineRes = await runGeminiPipeline({
+    planId: requestId,
+    title: req.name,
+    request: req.prompt,
+    requiredFields: Array.isArray(understanding.requiredFields)
+      ? understanding.requiredFields
+      : [String(understanding.requiredFields)],
+    geography: understanding.geography,
+    industry: understanding.industry,
+    target: understanding.target,
+    stages: prevRun?.blueprintStages,
   });
 
-  const totalCollected = (prevRun?.quality.collected ?? 47) + additionallyFound;
-  const uniqueCount = upgradedRecords.length;
-  const validatedCount = upgradedRecords.filter((r) => r.status === "Verified").length;
-  const conflictsCount = upgradedRecords.filter((r) => r.conflict != null).length;
-  const prevValidated = prevRun?.quality.validated ?? 31;
-  const prevConflicts = prevRun?.quality.conflicts ?? 2;
-  const validatedDelta = validatedCount - prevValidated;
-  const conflictsDelta = conflictsCount - prevConflicts;
+  if (!pipelineRes.success) {
+    throw new Error(`Real rerun failed: ${pipelineRes.error}`);
+  }
+
+  const result = pipelineRes.data;
+
+  // Real deltas compared to previous run
+  const prevUnique = prevRun?.quality.unique ?? 0;
+  const prevValidated = prevRun?.quality.validated ?? 0;
+  const prevConflicts = prevRun?.quality.conflicts ?? 0;
+
+  const recordsDelta = result.quality.unique - prevUnique;
+  const validatedDelta = result.quality.validated - prevValidated;
+  const conflictsDelta = result.quality.conflicts - prevConflicts;
+
+  const prevCoverage = prevRun
+    ? Math.round((prevRun.quality.validated / Math.max(1, prevRun.quality.unique)) * 100)
+    : 70;
+  const currentCoverage = Math.round(
+    (result.quality.validated / Math.max(1, result.quality.unique)) * 100,
+  );
+  const coverageDelta = currentCoverage - prevCoverage;
 
   const comparison: RunComparison = {
     previousRunId: prevRun ? prevRun.id : "initial",
     previousRunNumber: prevRun ? prevRun.runNumber : 1,
-    recordsDelta: additionallyFound,
+    recordsDelta,
     validatedDelta,
     conflictsDelta,
-    coverageDelta: 4,
-    qualityDelta: Math.max(1, validatedDelta * 2),
-    summary: `Run ${nextRunNumber} completed: +${additionallyFound} candidate records gathered, ${validatedDelta >= 0 ? `+${validatedDelta}` : validatedDelta} validated records, conflicts ${conflictsDelta <= 0 ? `${conflictsDelta}` : `+${conflictsDelta}`}.`,
+    coverageDelta,
+    qualityDelta: Math.abs(validatedDelta),
+    summary: `Run ${nextRunNumber} executed real collection: ${result.quality.collected} collected, ${result.quality.unique} unique, ${validatedDelta >= 0 ? `+${validatedDelta}` : validatedDelta} validated, ${conflictsDelta <= 0 ? conflictsDelta : `+${conflictsDelta}`} conflicts.`,
   };
 
   const newRun: PersistedRun = {
@@ -434,40 +468,23 @@ export async function rerunWorkflow(
     status: "Completed",
     createdAt: nowIST(),
     completedAt: nowIST(),
-    understanding: prevRun ? prevRun.understanding : buildInitialSeed().runs[0]!.understanding,
-    blueprintStages: prevRun ? prevRun.blueprintStages : buildInitialSeed().runs[0]!.blueprintStages,
-    executedStages: prevRun ? prevRun.executedStages : buildInitialSeed().runs[0]!.executedStages,
-    quality: {
-      collected: totalCollected,
-      unique: uniqueCount,
-      validated: validatedCount,
-      duplicates: (prevRun?.quality.duplicates ?? 11) + Math.max(0, additionallyFound - 1),
-      incomplete: Math.max(1, (prevRun?.quality.incomplete ?? 3) - 1),
-      conflicts: conflictsCount,
-    },
-    records: upgradedRecords,
-    sources: prevRun ? prevRun.sources : mockSources,
+    understanding,
+    blueprintStages: prevRun ? prevRun.blueprintStages : result.stages,
+    executedStages: result.stages,
+    quality: result.quality,
+    records: result.records,
+    sources: result.sources,
     interventions: [
       {
         time: nowIST(),
         title: `Workflow Rerun #${nextRunNumber} executed`,
-        detail: `Re-crawled primary sources for request "${req.name}".`,
+        detail: `Real web search collection completed with Gemini 3.8 Flash for request "${req.name}".`,
         tone: "accent",
       },
-      {
-        time: nowIST(),
-        title: "Incremental records & evidence merged",
-        detail: comparison.summary,
-        tone: "success",
-      },
+      ...result.interventions,
     ],
-    adaptiveOutcomes: [
-      [validatedDelta >= 0 ? `+${validatedDelta}` : String(validatedDelta), "Validated delta"],
-      [String(totalCollected), "Total collected"],
-      [String(conflictsCount), "Active conflicts"],
-      [String(upgradedRecords.length), "Unique records"],
-    ],
-    adaptiveSummary: `Rerun #${nextRunNumber} completed with fresh source discovery: ${comparison.summary}`,
+    adaptiveOutcomes: result.adaptiveOutcomes,
+    adaptiveSummary: result.adaptiveSummary,
     comparison,
   };
 

@@ -41,6 +41,13 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 function Index() {
   const [data, setData] = useState<OverviewData | null>(null);
 
@@ -99,8 +106,12 @@ function Index() {
   return (
     <div>
       <PageIntro
-        title="Good afternoon, Pravin"
-        description={`One workflow is active with persisted collection data. ${validatedCount} validated Java backend job records are ready to inspect.`}
+        title={`${getGreeting()}, Pravin`}
+        description={
+          data
+            ? `${data.activeWorkflowsCount} active workflow${data.activeWorkflowsCount === 1 ? "" : "s"} across ${data.totalRecordsCollected} collected records. ${validatedCount} validated records ready to inspect.`
+            : `One workflow is active with persisted collection data. ${validatedCount} validated Java backend job records are ready to inspect.`
+        }
         actions={
           <Link to="/requests">
             <Button>
@@ -113,8 +124,8 @@ function Index() {
       <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
           label="Active workflows"
-          value={String(data?.activeWorkflowsCount ?? 1)}
-          detail="Targeted verification in progress"
+          value={String(data?.activeWorkflowsCount ?? 0)}
+          detail={data?.activeWorkflowsCount ? "Workflow currently running" : "All workflows idle"}
         />
         <Metric
           label="Records collected"
@@ -124,13 +135,12 @@ function Index() {
         <Metric
           label="Average quality"
           value={`${qualityScore}%`}
-          detail="Up from 71% before adaptation"
-          trend="17 pts"
+          detail="Verified provenance ratio"
         />
         <Metric
           label="Source coverage"
           value={String(sourcesCount)}
-          detail="Job boards and careers pages"
+          detail="Grounded web sources"
         />
       </section>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)]">
