@@ -171,5 +171,8 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  button, a { cursor: pointer; }
+  button,
+  a {
+    cursor: pointer;
+  }
 }
