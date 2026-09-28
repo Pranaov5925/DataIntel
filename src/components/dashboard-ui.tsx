@@ -126,7 +126,24 @@ export function Confidence({ value }: { value: number }) {
   );
 }
 
-export function TaskTable({ compact = false }: { compact?: boolean }) {
+export type TaskItem = {
+  id: string;
+  name: string;
+  status: "Running" | "Complete" | "Needs review" | "Queued" | string;
+  progress: number;
+  records: number;
+  quality: number;
+  updated: string;
+};
+
+export function TaskTable({
+  compact = false,
+  tasks: customTasks,
+}: {
+  compact?: boolean | undefined;
+  tasks?: TaskItem[] | undefined;
+}) {
+  const list = customTasks ?? tasks;
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] text-left">
@@ -142,7 +159,7 @@ export function TaskTable({ compact = false }: { compact?: boolean }) {
           </tr>
         </thead>
         <tbody>
-          {tasks.slice(0, compact ? 4 : undefined).map((task) => (
+          {list.slice(0, compact ? 4 : undefined).map((task) => (
             <tr key={task.id} className="border-b border-border last:border-0 hover:bg-muted/30">
               <td className="px-5 py-3.5">
                 <Link

@@ -12,12 +12,12 @@ import {
   RotateCcw,
   Sparkles,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageIntro, QualityCallout, SectionHeader, iconForTone } from "@/components/dashboard-ui";
 import {
   DEMO_REQUEST,
-  interventions,
+  interventions as defaultInterventions,
   understanding as defaultUnderstanding,
   workflowStages as defaultStages,
 } from "@/lib/mock-data";
@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils";
 import { useActiveWorkflowPlan } from "@/lib/workflow-store";
 import { runPipelineFn } from "@/lib/run-pipeline";
 import { setPipelineResult } from "@/lib/pipeline-store";
+import { getActiveRunFn, rerunWorkflowFn } from "@/lib/storage-fns";
+import type { PersistedRun } from "@/lib/storage-schema";
 
 export const Route = createFileRoute("/workflow")({
   head: () => ({
@@ -53,48 +55,84 @@ export function WorkflowPage() {
   const navigate = useNavigate();
   const [running, setRunning] = useState(false);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
+  const [persistedRun, setPersistedRun] = useState<PersistedRun | null>(null);
 
-  const title = plan ? plan.title : "Indian SaaS companies hiring Java backend developers";
+  useEffect(() => {
+    let mounted = true;
+    getActiveRunFn()
+      .then((run) => {
+        if (mounted && run) setPersistedRun(run);
+      })
+      .catch((err) => console.error("Failed to load active run:", err));
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const title = plan ? plan.title : persistedRun ? persistedRun.requestName : "Indian SaaS companies hiring Java backend developers";
   const eyebrow = running
-    ? `Executing · ${plan?.id ?? "DR-1048"}`
+    ? `Executing · ${plan?.id ?? persistedRun?.requestId ?? "DR-1048"}`
     : plan
-      ? `Ready · ${plan.id}`
-      : "Running · DR-1048";
-  const description = plan ? plan.request : DEMO_REQUEST;
+      ? `Ready to execute · ${plan.id}`
+      : `Active run · ${persistedRun?.requestId ?? "DR-1048"} (v${persistedRun?.runNumber ?? 2})`;
+  const description = plan ? plan.request : persistedRun ? persistedRun.originalPrompt : DEMO_REQUEST;
 
   async function handleRunPipeline() {
-    if (!plan || running) return;
-    setRunning(true);
-    setPipelineError(null);
+    if (running) return;
 
-    try {
-      const res = await runPipelineFn({
-        data: {
-          planId: plan.id,
-          title: plan.title,
-          request: plan.request,
-          requiredFields: Array.isArray(plan.understanding.requiredFields)
-            ? plan.understanding.requiredFields
-            : [String(plan.understanding.requiredFields)],
-          geography: plan.understanding.geography,
-          industry: plan.understanding.industry,
-          target: plan.understanding.target,
-        },
-      });
+    if (plan) {
+      setRunning(true);
+      setPipelineError(null);
 
-      if (!res.success) {
-        setPipelineError(res.error ?? "Pipeline execution failed.");
+      try {
+        const res = await runPipelineFn({
+          data: {
+            planId: plan.id,
+            title: plan.title,
+            request: plan.request,
+            requiredFields: Array.isArray(plan.understanding.requiredFields)
+              ? plan.understanding.requiredFields
+              : [String(plan.understanding.requiredFields)],
+            geography: plan.understanding.geography,
+            industry: plan.understanding.industry,
+            target: plan.understanding.target,
+          },
+        });
+
+        if (!res.success) {
+          setPipelineError(res.error ?? "Pipeline execution failed.");
+          setRunning(false);
+          return;
+        }
+
+        setPipelineResult(res.data);
+        await navigate({ to: "/datasets" });
+      } catch (err: unknown) {
+        setPipelineError(
+          err instanceof Error ? err.message : "An unexpected error occurred during pipeline execution.",
+        );
         setRunning(false);
-        return;
       }
-
-      setPipelineResult(res.data);
-      await navigate({ to: "/datasets" });
-    } catch (err: unknown) {
-      setPipelineError(
-        err instanceof Error ? err.message : "An unexpected error occurred during pipeline execution.",
-      );
-      setRunning(false);
+    } else if (persistedRun) {
+      setRunning(true);
+      setPipelineError(null);
+      try {
+        const res = await rerunWorkflowFn({
+          data: {
+            requestId: persistedRun.requestId,
+          },
+        });
+        if (res.success && res.newRun) {
+          setPersistedRun(res.newRun);
+          await navigate({ to: "/datasets" });
+        } else {
+          setPipelineError(res.error ?? "Failed to rerun workflow.");
+        }
+      } catch (err: unknown) {
+        setPipelineError(err instanceof Error ? err.message : "Rerun error");
+      } finally {
+        setRunning(false);
+      }
     }
   }
 
@@ -119,12 +157,52 @@ export function WorkflowPage() {
         ["Freshness", plan.understanding.freshness],
         ["Search intent", plan.understanding.searchIntent],
       ]
-    : (defaultUnderstanding as unknown as [string, string][]);
+    : persistedRun
+      ? [
+          ["Objective", persistedRun.understanding.objective],
+          ["Target", persistedRun.understanding.target],
+          ["Geography", persistedRun.understanding.geography],
+          ["Industry", persistedRun.understanding.industry],
+          [
+            "Constraints",
+            Array.isArray(persistedRun.understanding.constraints)
+              ? persistedRun.understanding.constraints.join("; ")
+              : String(persistedRun.understanding.constraints ?? "—"),
+          ],
+          [
+            "Required fields",
+            Array.isArray(persistedRun.understanding.requiredFields)
+              ? persistedRun.understanding.requiredFields.join(", ")
+              : String(persistedRun.understanding.requiredFields ?? "—"),
+          ],
+          ["Freshness", persistedRun.understanding.freshness],
+          ["Search intent", persistedRun.understanding.searchIntent],
+        ]
+      : (defaultUnderstanding as unknown as [string, string][]);
 
-  const stages = plan ? plan.stages : defaultStages;
+  const stages = plan
+    ? plan.stages
+    : persistedRun
+      ? persistedRun.executedStages.map((s) => ({
+          name: s.name,
+          detail: s.detail,
+          status: s.status,
+          count: s.count,
+        }))
+      : defaultStages;
+
   const blueprintSubtitle = plan
     ? `${plan.stages.length}-step workflow generated by Gemini for this request`
-    : "8-step workflow generated by the AI for this request";
+    : persistedRun
+      ? `${stages.length}-step workflow executed with verified provenance`
+      : "8-step workflow generated by the AI for this request";
+
+  const interventions = persistedRun ? persistedRun.interventions : defaultInterventions;
+  const validatedCount = persistedRun ? persistedRun.quality.validated : 31;
+  const uniqueCount = persistedRun ? persistedRun.quality.unique : 36;
+  const qualityScore = persistedRun
+    ? Math.round((persistedRun.quality.validated / Math.max(1, persistedRun.quality.unique)) * 100)
+    : 88;
 
   return (
     <div>
@@ -140,36 +218,34 @@ export function WorkflowPage() {
                 New request
               </Button>
             </Link>
-            {plan ? (
-              <Button onClick={handleRunPipeline} disabled={running}>
-                {running ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    Collecting data…
-                  </>
-                ) : (
-                  <>
-                    <Play className="size-4" />
-                    Run pipeline
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button variant="outline" disabled>
-                <RotateCcw className="size-4" />
-                Restart
-              </Button>
-            )}
+            <Button onClick={handleRunPipeline} disabled={running}>
+              {running ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Collecting data…
+                </>
+              ) : plan ? (
+                <>
+                  <Play className="size-4" />
+                  Run pipeline
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="size-4" />
+                  Rerun pipeline
+                </>
+              )}
+            </Button>
           </>
         }
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
         {[
-          ["Progress", running ? "Executing…" : plan ? "Ready to run" : "82%"],
-          ["Records", running ? "Collecting…" : plan ? "—" : "47 → 36 unique"],
-          ["Quality score", running ? "Processing…" : plan ? "—" : "88 / 100"],
-          ["Elapsed", running ? "Running…" : plan ? "—" : "29m 06s"],
+          ["Progress", running ? "Executing…" : plan ? "Ready to run" : "100% Complete"],
+          ["Records", running ? "Collecting…" : plan ? "—" : `${uniqueCount} unique`],
+          ["Quality score", running ? "Processing…" : plan ? "—" : `${qualityScore} / 100`],
+          ["Status", running ? "Running…" : plan ? "Pending" : "Dataset Ready"],
         ].map(([label, value]) => (
           <div className="border border-border bg-card p-4" key={label}>
             <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
@@ -184,11 +260,11 @@ export function WorkflowPage() {
           subtitle={
             plan
               ? "Live Gemini breakdown of your natural-language requirements"
-              : "How the request was interpreted before any data was collected"
+              : "Structured requirement breakdown before collection began"
           }
           action={
             <div className="flex items-center gap-1.5 text-xs text-primary font-medium">
-              {plan && <Sparkles className="size-3.5" />}
+              {(plan || persistedRun) && <Sparkles className="size-3.5" />}
               <Brain className="size-4" />
             </div>
           }
@@ -272,7 +348,7 @@ export function WorkflowPage() {
           <section className="border border-border bg-card">
             <SectionHeader
               title="Adaptive decisions"
-              subtitle="Live changes made by the workflow"
+              subtitle="Live audit trail of adjustments made"
             />
             <div className="p-5">
               {interventions.map((item) => {
@@ -321,13 +397,13 @@ export function WorkflowPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Validated records ready to inspect</p>
-                <p className="mt-1 text-2xl font-semibold">31</p>
+                <p className="mt-1 text-2xl font-semibold">{validatedCount}</p>
               </div>
               <Clock3 className="size-5 text-primary" />
             </div>
             <Link
               to="/datasets"
-              className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs font-semibold text-primary"
+              className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs font-semibold text-primary hover:underline"
             >
               Open live dataset <ArrowRight className="size-4" />
             </Link>

@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { ArrowRight, Database, FileText, Globe, Quote } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowRight, Database, ExternalLink, FileText, Globe, Quote } from "lucide-react";
 import { PageIntro, StatusBadge } from "@/components/dashboard-ui";
 import { RecordDetail } from "@/components/record-detail";
 import { datasetRows, sources as mockSources } from "@/lib/mock-data";
 import type { DatasetRecord as MockDatasetRecord } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { usePipelineResult } from "@/lib/pipeline-store";
+import { getActiveRunFn } from "@/lib/storage-fns";
+import type { PersistedRun } from "@/lib/storage-schema";
 
 export const Route = createFileRoute("/evidence")({
   head: () => ({
@@ -30,9 +32,39 @@ export const Route = createFileRoute("/evidence")({
 
 function EvidencePage() {
   const pipelineResult = usePipelineResult();
+  const [persistedRun, setPersistedRun] = useState<PersistedRun | null>(null);
 
-  const activeRecords = pipelineResult ? pipelineResult.records : datasetRows;
-  const activeSources = pipelineResult ? pipelineResult.sources : mockSources;
+  useEffect(() => {
+    let mounted = true;
+    getActiveRunFn()
+      .then((run) => {
+        if (mounted && run) setPersistedRun(run);
+      })
+      .catch((err) => console.error("Failed to load active run in evidence:", err));
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const activeRecords = useMemo(() => {
+    if (pipelineResult?.records && pipelineResult.records.length > 0) {
+      return pipelineResult.records;
+    }
+    if (persistedRun?.records && persistedRun.records.length > 0) {
+      return persistedRun.records;
+    }
+    return datasetRows;
+  }, [pipelineResult, persistedRun]);
+
+  const activeSources = useMemo(() => {
+    if (pipelineResult?.sources && pipelineResult.sources.length > 0) {
+      return pipelineResult.sources;
+    }
+    if (persistedRun?.sources && persistedRun.sources.length > 0) {
+      return persistedRun.sources;
+    }
+    return mockSources;
+  }, [pipelineResult, persistedRun]);
 
   const items = useMemo(
     () =>
@@ -42,18 +74,29 @@ function EvidencePage() {
     [activeRecords],
   );
 
-  const pageEyebrow = pipelineResult ? `Provenance · ${pipelineResult.planId}` : "Provenance · DR-1048";
+  const planId = persistedRun?.requestId || pipelineResult?.planId || "DR-1048";
+  const runVersion = persistedRun ? `v${persistedRun.runNumber}` : "v2";
+  const pageEyebrow = `Provenance · ${planId} (${runVersion})`;
 
   const [src, setSrc] = useState<string>("All");
   const list = useMemo(
-    () => items.filter((i) => src === "All" || i.source.startsWith(src.split(" ")[0] ?? "")),
+    () => items.filter((i) => src === "All" || i.source.toLowerCase().startsWith(src.split(" ")[0]?.toLowerCase() ?? "")),
     [src, items],
   );
   const [key, setKey] = useState("");
   const firstKey = items[0] ? `${items[0].recordId}-${items[0].field}` : "";
   const activeKey = key || firstKey;
   const item = items.find((i) => `${i.recordId}-${i.field}` === activeKey) ?? items[0];
-  const record = item ? activeRecords.find((r) => r.id === item.recordId) : undefined;;
+  const record = item ? activeRecords.find((r) => r.id === item.recordId) : undefined;
+
+  const coveragePercent =
+    items.length > 0
+      ? Math.round((items.filter((i) => i.verification !== "Needs verification").length / items.length) * 100)
+      : 78;
+
+  const openConflictsCount =
+    persistedRun?.quality.conflicts ?? (pipelineResult ? pipelineResult.quality.conflicts : 2);
+
   return (
     <div>
       <PageIntro
@@ -64,12 +107,12 @@ function EvidencePage() {
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
         {[
           [
-            `${items.length > 0 ? Math.round((items.filter((i) => i.verification !== "Needs verification").length / items.length) * 100) : 0}%`,
+            `${coveragePercent}%`,
             "Evidence coverage",
             "Values linked to a snippet",
           ],
           [String(items.length), "Field-level citations", "In this dataset"],
-          [String(pipelineResult ? pipelineResult.quality.conflicts : 2), "Open conflicts", "Awaiting review"],
+          [String(openConflictsCount), "Open conflicts", "Awaiting review"],
           [String(activeSources.length), "Sources used", "Careers pages & job boards"],
         ].map(([v, l, d]) => (
           <div key={l} className="border border-border bg-card p-5">
@@ -83,10 +126,10 @@ function EvidencePage() {
         <button
           onClick={() => setSrc("All")}
           className={cn(
-            "rounded-md border border-border px-3 py-1.5 text-xs",
+            "rounded-md border border-border px-3 py-1.5 text-xs transition",
             src === "All"
-              ? "border-primary bg-primary-muted text-primary"
-              : "bg-card text-muted-foreground",
+              ? "border-primary bg-primary-muted text-primary font-semibold"
+              : "bg-card text-muted-foreground hover:bg-muted/40",
           )}
         >
           All sources
@@ -96,10 +139,10 @@ function EvidencePage() {
             key={s.name}
             onClick={() => setSrc(s.name)}
             className={cn(
-              "rounded-md border border-border px-3 py-1.5 text-xs",
+              "rounded-md border border-border px-3 py-1.5 text-xs transition",
               src === s.name
-                ? "border-primary bg-primary-muted text-primary"
-                : "bg-card text-muted-foreground",
+                ? "border-primary bg-primary-muted text-primary font-semibold"
+                : "bg-card text-muted-foreground hover:bg-muted/40",
             )}
           >
             {s.name} <span className="ml-1 font-semibold">{s.reliability}%</span>
@@ -144,6 +187,13 @@ function EvidencePage() {
                     </tr>
                   );
                 })}
+                {list.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-xs text-muted-foreground">
+                      No evidence citations found for this source filter.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -165,7 +215,7 @@ function EvidencePage() {
                       <li key={String(label)}>
                         <div className="flex gap-3 border border-border p-3">
                           <C className="mt-0.5 size-4 shrink-0 text-primary" />
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="text-[10px] uppercase text-muted-foreground">
                               {String(label)}
                             </p>
@@ -177,9 +227,20 @@ function EvidencePage() {
                             >
                               {String(main)}
                             </p>
-                            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                              {String(sub)}
-                            </p>
+                            {label === "Source" && item.url && item.url !== "—" ? (
+                              <a
+                                href={item.url.startsWith("http") ? item.url : `https://${item.url}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-0.5 inline-flex items-center gap-1 truncate text-[10px] text-primary hover:underline"
+                              >
+                                {String(sub)} <ExternalLink className="size-2.5 shrink-0" />
+                              </a>
+                            ) : (
+                              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                                {String(sub)}
+                              </p>
+                            )}
                           </div>
                         </div>
                         {idx < 3 && (

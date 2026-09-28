@@ -55,10 +55,21 @@ export function RecordDetail({ record, onClose }: { record: DatasetRecord; onClo
                 <p className="mt-2 border-l-2 border-border pl-2 text-[11px] italic leading-5 text-muted-foreground">
                   {c.snippet}
                 </p>
-                <p className="mt-2 flex items-center gap-1 truncate text-[10px] text-primary">
-                  <ExternalLink className="size-3 shrink-0" />
-                  {c.url} · {c.retrieved}
-                </p>
+                {c.url && c.url !== "—" ? (
+                  <a
+                    href={c.url.startsWith("http") ? c.url : `https://${c.url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 flex items-center gap-1 truncate text-[10px] text-primary hover:underline"
+                  >
+                    <ExternalLink className="size-3 shrink-0" />
+                    {c.url} · {c.retrieved}
+                  </a>
+                ) : (
+                  <p className="mt-2 flex items-center gap-1 truncate text-[10px] text-muted-foreground">
+                    {c.url} · {c.retrieved}
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -86,10 +97,15 @@ export function RecordDetail({ record, onClose }: { record: DatasetRecord; onClo
               <span>Retrieved {e.retrieved}</span>
             </div>
             {e.url !== "—" && (
-              <p className="mt-1 flex items-center gap-1 truncate text-[10px] text-primary">
+              <a
+                href={e.url.startsWith("http") ? e.url : `https://${e.url}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 flex items-center gap-1 truncate text-[10px] text-primary hover:underline"
+              >
                 <ExternalLink className="size-3 shrink-0" />
                 {e.url}
-              </p>
+              </a>
             )}
           </div>
         ))}
