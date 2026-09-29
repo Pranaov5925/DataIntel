@@ -389,9 +389,8 @@ export async function rerunWorkflow(
   const nextRunNumber = (prevRun?.runNumber ?? 1) + 1;
   const newRunId = `RUN-${requestId}-v${nextRunNumber}`;
 
-  // REQUIREMENT #13: Execute the REAL pipeline again with Gemini 3.8 Flash
-  // No copying old records, no fake status upgrades, no Math.random()
-  const { runGeminiPipeline } = await import("./pipeline-runner");
+  // Execute the REAL local pipeline again with SearXNG + Crawl4AI + Ollama
+  const { runOllamaPipeline } = await import("./pipeline-runner");
 
   const understanding = prevRun?.understanding ?? {
     objective: req.name,
@@ -412,16 +411,22 @@ export async function rerunWorkflow(
     searchIntent: "Competitive intelligence and talent mapping",
   };
 
-  const pipelineRes = await runGeminiPipeline({
+  const pipelineRes = await runOllamaPipeline({
     planId: requestId,
     title: req.name,
     request: req.prompt,
+    understanding,
     requiredFields: Array.isArray(understanding.requiredFields)
       ? understanding.requiredFields
       : [String(understanding.requiredFields)],
     geography: understanding.geography,
     industry: understanding.industry,
     target: understanding.target,
+    constraints: Array.isArray(understanding.constraints)
+      ? understanding.constraints
+      : [String(understanding.constraints)],
+    freshness: understanding.freshness,
+    searchIntent: understanding.searchIntent,
     stages: prevRun?.blueprintStages,
   });
 
@@ -478,7 +483,7 @@ export async function rerunWorkflow(
       {
         time: nowIST(),
         title: `Workflow Rerun #${nextRunNumber} executed`,
-        detail: `Real web search collection completed with Gemini 3.8 Flash for request "${req.name}".`,
+        detail: `Real web search collection completed with SearXNG, Crawl4AI, and Ollama for request "${req.name}".`,
         tone: "accent",
       },
       ...result.interventions,

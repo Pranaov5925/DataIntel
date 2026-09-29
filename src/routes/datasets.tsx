@@ -90,13 +90,13 @@ function DatasetsPage() {
     };
   }, []);
 
-  // Determine active dataset: prefer live pipelineResult, then persisted run, then mockRows
+  // Determine active dataset: prefer live pipelineResult, then persisted run, then initial demo state
   const rows_source: AnyRecord[] = useMemo(() => {
-    if (pipelineResult?.records && pipelineResult.records.length > 0) {
-      return pipelineResult.records;
+    if (pipelineResult) {
+      return pipelineResult.records ?? [];
     }
-    if (persistedRun?.records && persistedRun.records.length > 0) {
-      return persistedRun.records as AnyRecord[];
+    if (persistedRun) {
+      return (persistedRun.records as AnyRecord[]) ?? [];
     }
     return datasetRows;
   }, [pipelineResult, persistedRun]);

@@ -2,22 +2,21 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { PipelineResult } from "./pipeline-schema";
 
-const workflowStepInputSchema = z.object({
-  name: z.string(),
-  detail: z.string(),
-  status: z.enum(["complete", "active", "pending"]).optional(),
-  count: z.string().optional(),
-});
+import { requirementUnderstandingSchema, workflowStepSchema } from "./workflow-schema";
 
 const inputSchema = z.object({
   planId: z.string(),
   title: z.string(),
   request: z.string(),
-  requiredFields: z.array(z.string()),
-  geography: z.string(),
-  industry: z.string(),
-  target: z.string(),
-  stages: z.array(workflowStepInputSchema).optional(),
+  understanding: requirementUnderstandingSchema.optional(),
+  requiredFields: z.array(z.string()).optional(),
+  geography: z.string().optional(),
+  industry: z.string().optional(),
+  target: z.string().optional(),
+  constraints: z.array(z.string()).optional(),
+  freshness: z.string().optional(),
+  searchIntent: z.string().optional(),
+  stages: z.array(workflowStepSchema).optional(),
 });
 
 export type RunPipelineInput = z.infer<typeof inputSchema>;
@@ -28,6 +27,6 @@ export type RunPipelineResult =
 export const runPipelineFn = createServerFn({ method: "POST" })
   .validator((input: unknown) => inputSchema.parse(input))
   .handler(async ({ data }): Promise<RunPipelineResult> => {
-    const { runGeminiPipeline } = await import("../server/pipeline-runner");
-    return runGeminiPipeline(data);
+    const { runOllamaPipeline } = await import("../server/pipeline-runner");
+    return runOllamaPipeline(data);
   });

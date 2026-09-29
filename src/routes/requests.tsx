@@ -81,7 +81,7 @@ function RequestsPage() {
       });
 
       if (!res.success) {
-        setError(res.error || "Failed to generate workflow with Gemini.");
+        setError(res.error || "Failed to generate collection workflow.");
         setCreating(false);
         return;
       }
@@ -92,7 +92,7 @@ function RequestsPage() {
       const message =
         err instanceof Error
           ? err.message
-          : "An unexpected error occurred while communicating with Gemini.";
+          : "An unexpected error occurred during workflow generation.";
       setError(message);
       setCreating(false);
     }
@@ -133,17 +133,9 @@ function RequestsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">Workflow Generation Error</p>
                     <p className="mt-1 text-muted-foreground leading-5">{error}</p>
-                    {error.includes("GEMINI_API_KEY") && (
+                    {error.includes("Ollama") && (
                       <p className="mt-2 text-[11px] font-medium text-foreground">
-                        Tip: Open the{" "}
-                        <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
-                          .env
-                        </code>{" "}
-                        file in your project root, add your valid{" "}
-                        <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
-                          GEMINI_API_KEY
-                        </code>
-                        , and try again.
+                        Tip: Ensure Ollama is running (`ollama serve`) and the configured model is installed (`ollama pull qwen2.5:3b`).
                       </p>
                     )}
                   </div>
@@ -184,7 +176,7 @@ function RequestsPage() {
                 {creating ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Generating with Gemini…
+                    Generating workflow…
                   </>
                 ) : (
                   <>

@@ -47,21 +47,21 @@ function EvidencePage() {
   }, []);
 
   const activeRecords = useMemo(() => {
-    if (pipelineResult?.records && pipelineResult.records.length > 0) {
-      return pipelineResult.records;
+    if (pipelineResult) {
+      return pipelineResult.records ?? [];
     }
-    if (persistedRun?.records && persistedRun.records.length > 0) {
-      return persistedRun.records;
+    if (persistedRun) {
+      return persistedRun.records ?? [];
     }
     return datasetRows;
   }, [pipelineResult, persistedRun]);
 
   const activeSources = useMemo(() => {
-    if (pipelineResult?.sources && pipelineResult.sources.length > 0) {
-      return pipelineResult.sources;
+    if (pipelineResult) {
+      return pipelineResult.sources ?? [];
     }
-    if (persistedRun?.sources && persistedRun.sources.length > 0) {
-      return persistedRun.sources;
+    if (persistedRun) {
+      return persistedRun.sources ?? [];
     }
     return mockSources;
   }, [pipelineResult, persistedRun]);

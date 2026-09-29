@@ -54,13 +54,17 @@ export const workflowStepSchema = z.object({
 
 export type WorkflowStep = z.infer<typeof workflowStepSchema>;
 
-export const geminiWorkflowResponseSchema = z.object({
+export const workflowResponseSchema = z.object({
   title: z.string().describe("Short descriptive task title (4-8 words)"),
   understanding: requirementUnderstandingSchema,
   stages: z.array(workflowStepSchema).min(3).max(14),
 });
 
-export type GeminiWorkflowResponse = z.infer<typeof geminiWorkflowResponseSchema>;
+export type WorkflowResponse = z.infer<typeof workflowResponseSchema>;
+
+// Backwards-compatible alias for existing imports
+export const geminiWorkflowResponseSchema = workflowResponseSchema;
+export type GeminiWorkflowResponse = WorkflowResponse;
 
 export const collectionPlanSchema = z.object({
   id: z.string(),

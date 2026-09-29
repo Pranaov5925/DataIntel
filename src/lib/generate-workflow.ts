@@ -13,6 +13,6 @@ export type GenerateWorkflowResult =
 export const generateWorkflowFn = createServerFn({ method: "POST" })
   .validator((input: unknown) => inputSchema.parse(input))
   .handler(async ({ data }): Promise<GenerateWorkflowResult> => {
-    const { runGeminiWorkflow } = await import("../server/gemini-runner");
-    return runGeminiWorkflow(data);
+    const { runOllamaWorkflow } = await import("../server/workflow-runner");
+    return runOllamaWorkflow(data);
   });

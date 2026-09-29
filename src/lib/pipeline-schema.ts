@@ -41,6 +41,7 @@ export const datasetRecordSchema = z.object({
   status: z.enum(["Verified", "Review", "Conflict", "Incomplete"]),
   evidence: z.array(evidenceSchema),
   conflict: conflictSchema.optional(),
+  attributes: z.record(z.string(), z.string().nullable()).optional(),
 });
 
 // ─── Source summary ───────────────────────────────────────────────────────────

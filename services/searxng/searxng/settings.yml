@@ -1,0 +1,44 @@
+use_default_settings: true
+
+general:
+  debug: false
+  instance_name: "DataIntel Local SearXNG"
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "en"
+  formats:
+    - html
+    - json
+
+server:
+  port: 8080
+  bind_address: "0.0.0.0"
+  secret_key: "dataintel_searxng_secret_key_hackathon_ps01"
+  limiter: false
+  image_proxy: false
+
+ui:
+  static_use_hash: true
+  default_theme: simple
+  theme_args:
+    simple_style: auto
+
+engines:
+  - name: duckduckgo
+    engine: duckduckgo
+    shortcut: ddg
+    timeout: 3.0
+  - name: google
+    engine: google
+    shortcut: g
+    timeout: 3.0
+  - name: bing
+    engine: bing
+    shortcut: b
+    timeout: 3.0
+  - name: wikipedia
+    engine: wikipedia
+    shortcut: wp
+    timeout: 3.0
