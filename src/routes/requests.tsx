@@ -133,9 +133,9 @@ function RequestsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold">Workflow Generation Error</p>
                     <p className="mt-1 text-muted-foreground leading-5">{error}</p>
-                    {error.includes("Ollama") && (
+                    {error.toLowerCase().includes("mistral") && (
                       <p className="mt-2 text-[11px] font-medium text-foreground">
-                        Tip: Ensure Ollama is running (`ollama serve`) and the configured model is installed (`ollama pull qwen2.5:3b`).
+                        Tip: Ensure MISTRAL_API_KEY is configured in your .env file.
                       </p>
                     )}
                   </div>

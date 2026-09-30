@@ -437,8 +437,8 @@ export async function rerunWorkflow(
   const nextRunNumber = (prevRun?.runNumber ?? 1) + 1;
   const newRunId = `RUN-${requestId}-v${nextRunNumber}`;
 
-  // Execute the REAL local pipeline again with SearXNG + Crawl4AI + Ollama
-  const { runOllamaPipeline } = await import("./pipeline-runner");
+  // Execute the pipeline again with Mistral API
+  const { runMistralPipeline } = await import("./pipeline-runner");
 
   const understanding: RequirementUnderstanding = prevRun?.understanding ?? {
     objective: req.name,
@@ -461,7 +461,7 @@ export async function rerunWorkflow(
     searchIntent: "Competitive intelligence and talent mapping",
   };
 
-  const pipelineRes = await runOllamaPipeline({
+  const pipelineRes = await runMistralPipeline({
     planId: requestId,
     title: req.name,
     request: req.prompt,
@@ -533,7 +533,7 @@ export async function rerunWorkflow(
       {
         time: nowIST(),
         title: `Workflow Rerun #${nextRunNumber} executed`,
-        detail: `Real web search collection completed with SearXNG, Crawl4AI, and Ollama for request "${req.name}".`,
+        detail: `Web search collection completed with Mistral API (mistral-small-latest) for request "${req.name}".`,
         tone: "accent",
       },
       ...result.interventions,

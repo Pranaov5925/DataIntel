@@ -106,7 +106,7 @@ function Index() {
   return (
     <div>
       <PageIntro
-        title={`${getGreeting()}, Pravin`}
+        title={getGreeting()}
         description={
           data
             ? `${data.activeWorkflowsCount} active workflow${data.activeWorkflowsCount === 1 ? "" : "s"} across ${data.totalRecordsCollected} collected records. ${validatedCount} validated records ready to inspect.`

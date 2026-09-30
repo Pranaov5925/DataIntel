@@ -27,6 +27,6 @@ export type RunPipelineResult =
 export const runPipelineFn = createServerFn({ method: "POST" })
   .validator((input: unknown) => inputSchema.parse(input))
   .handler(async ({ data }): Promise<RunPipelineResult> => {
-    const { runOllamaPipeline } = await import("../server/pipeline-runner");
-    return runOllamaPipeline(data);
+    const { runMistralPipeline } = await import("../server/pipeline-runner");
+    return runMistralPipeline(data);
   });

@@ -93,10 +93,6 @@ export const workflowResponseSchema = z.object({
 
 export type WorkflowResponse = z.infer<typeof workflowResponseSchema>;
 
-// Backwards-compatible alias for existing imports
-export const geminiWorkflowResponseSchema = workflowResponseSchema;
-export type GeminiWorkflowResponse = WorkflowResponse;
-
 export const collectionPlanSchema = z.object({
   id: z.string(),
   title: z.string(),

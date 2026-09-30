@@ -1,12 +1,3 @@
-/**
- * qualification-engine.ts  –  SERVER ONLY
- *
- * Deterministic Qualification Engine for DataIntel:
- *  - Machine-evaluable rule parser and evaluator
- *  - Number and currency normalization (Lakhs, Crores, INR, ranges, units)
- *  - Distinction between hard constraints, required output fields, and optional fields
- *  - Clear, human-readable qualification reasons for Excluded / Needs verification / Qualified
- */
 
 import type {
   DatasetRecord,

@@ -199,7 +199,7 @@ function DatasetsPage() {
     return datasetRows;
   }, [explicitRunId, persistedRun, pipelineResult]);
 
-  // Compute dynamic columns based on run's required fields (Requirement #13)
+  // Compute dynamic columns based on run's required fields
   const dynamicCols = useMemo(() => {
     const fields = persistedRun?.understanding?.requiredFields || [];
     if (fields.length > 0) {

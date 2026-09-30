@@ -13,6 +13,6 @@ export type GenerateWorkflowResult =
 export const generateWorkflowFn = createServerFn({ method: "POST" })
   .validator((input: unknown) => inputSchema.parse(input))
   .handler(async ({ data }): Promise<GenerateWorkflowResult> => {
-    const { runOllamaWorkflow } = await import("../server/workflow-runner");
-    return runOllamaWorkflow(data);
+    const { runMistralWorkflow } = await import("../server/workflow-runner");
+    return runMistralWorkflow(data);
   });

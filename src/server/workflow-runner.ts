@@ -1,13 +1,10 @@
-/**
- * workflow-runner.ts - Ollama Workflow Generator
- */
 
 import {
   collectionPlanSchema,
   workflowResponseSchema,
   type CollectionPlan,
 } from "../lib/workflow-schema";
-import { callOllamaJson, getOllamaConfig } from "./ollama-client";
+import { callMistralJson, MISTRAL_DEFAULT_MODEL } from "./mistral-client";
 import { extractDeterministicConstraints } from "./qualification-engine";
 
 export type RunWorkflowInput = {
@@ -19,11 +16,9 @@ export type RunWorkflowResult =
   | { success: true; data: CollectionPlan }
   | { success: false; error: string };
 
-export async function runOllamaWorkflow(
+export async function runMistralWorkflow(
   input: RunWorkflowInput,
 ): Promise<RunWorkflowResult> {
-  const config = getOllamaConfig();
-
   const systemInstruction = `You are an AI Research Architect and Data Collection Planner for DataIntel, an enterprise AI Data Intelligence Platform.
 Your mission is to analyze any natural-language data collection request and generate:
 1. "understanding": A deep structured requirement analysis with:
@@ -49,7 +44,7 @@ Your mission is to analyze any natural-language data collection request and gene
    - searchIntent: underlying operational or business goal
 2. "stages": A custom sequential multi-stage workflow collection blueprint tailored specifically to this request.
    The stages should represent a realistic data collection pipeline:
-   - Discover: Identify relevant, permitted primary sources (job boards, registry portals, directories, websites)
+   - Discover: Identify relevant, permitted primary sources
    - Collect: Gather candidate listings/records from identified sources
    - Extract: Extract and structure the required fields
    - Clean: Clean, normalize, and standardize extracted values
@@ -70,7 +65,11 @@ Return strictly a valid JSON object matching the requested schema. No markdown f
   const prompt = `Data Collection Request:\n"${input.request}"\n\nPreferences:\n${JSON.stringify(input.preferences ?? {}, null, 2)}\n\nGenerate the complete structured requirement understanding and collection workflow blueprint.`;
 
   try {
-    const rawOutput = await callOllamaJson<unknown>(prompt, systemInstruction, config);
+    const rawOutput = await callMistralJson<unknown>(
+      prompt,
+      systemInstruction,
+      MISTRAL_DEFAULT_MODEL,
+    );
 
     const validated = workflowResponseSchema.safeParse(rawOutput);
     if (!validated.success) {
@@ -79,7 +78,7 @@ Return strictly a valid JSON object matching the requested schema. No markdown f
         .join("; ");
       return {
         success: false,
-        error: `Ollama structured workflow validation failed: ${errorMsg}`,
+        error: `Mistral structured workflow validation failed: ${errorMsg}`,
       };
     }
 
@@ -130,7 +129,7 @@ Return strictly a valid JSON object matching the requested schema. No markdown f
       data: finalCheck,
     };
   } catch (err: unknown) {
-    console.error("Ollama workflow generation error:", err);
+    console.error("Mistral workflow generation error:", err);
     return {
       success: false,
       error: err instanceof Error ? err.message : String(err),
@@ -138,16 +137,13 @@ Return strictly a valid JSON object matching the requested schema. No markdown f
   }
 }
 
-// Backward-compatible alias for existing imports
-export const runGeminiWorkflow = runOllamaWorkflow;
-export type RunGeminiWorkflowInput = RunWorkflowInput;
-export type RunGeminiWorkflowResult = RunWorkflowResult;
+export const runWorkflow = runMistralWorkflow;
 
-export async function generateWorkflowWithOllama(
+export async function generateWorkflowWithMistral(
   request: string,
   preferences?: Record<string, string>,
 ): Promise<CollectionPlan> {
-  const res = await runOllamaWorkflow({ request, preferences });
+  const res = await runMistralWorkflow({ request, preferences });
   if (!res.success) {
     throw new Error(res.error);
   }
