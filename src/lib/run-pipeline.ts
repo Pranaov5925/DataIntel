@@ -21,7 +21,7 @@ const inputSchema = z.object({
 
 export type RunPipelineInput = z.infer<typeof inputSchema>;
 export type RunPipelineResult =
-  | { success: true; data: PipelineResult }
+  | { success: true; data: PipelineResult; runId: string }
   | { success: false; error: string };
 
 export const runPipelineFn = createServerFn({ method: "POST" })

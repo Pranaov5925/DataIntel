@@ -82,8 +82,7 @@ function HistoryPage() {
   async function handleSelectRun(run: PersistedRun) {
     try {
       await setActiveRunFn({ data: { runId: run.id } });
-      await loadHistory();
-      await navigate({ to: "/datasets" });
+      await navigate({ to: "/datasets", search: { runId: run.id } });
     } catch (err) {
       console.error("Failed to select run:", err);
     }
@@ -195,12 +194,26 @@ function HistoryPage() {
                             <span className="text-muted-foreground">{run.sources.length} sources</span>
                             <span className="text-muted-foreground">{run.quality.conflicts} conflicts</span>
                           </div>
-                          <button
-                            onClick={() => handleSelectRun(run)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
-                          >
-                            Inspect dataset <ExternalLink className="size-3" />
-                          </button>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => navigate({ to: "/workflow", search: { runId: run.id } })}
+                              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                            >
+                              Workflow
+                            </button>
+                            <button
+                              onClick={() => navigate({ to: "/evidence", search: { runId: run.id } })}
+                              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                            >
+                              Evidence
+                            </button>
+                            <button
+                              onClick={() => handleSelectRun(run)}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                            >
+                              Inspect dataset <ExternalLink className="size-3" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

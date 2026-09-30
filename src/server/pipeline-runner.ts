@@ -19,14 +19,20 @@ import {
   type PipelineResult,
   type DatasetRecord,
   type Evidence,
+  type Conflict,
   type SourceSummary,
   type Intervention,
   type ExecutedStage,
 } from "../lib/pipeline-schema";
 import type { RunPipelineInput } from "../lib/run-pipeline";
+import type { StructuredConstraint } from "../lib/workflow-schema";
 import { searchSearxng, type SearxngResult } from "./searxng-client";
 import { crawlUrl, type CrawlResult } from "./crawl4ai-client";
 import { callOllamaJson, getOllamaConfig } from "./ollama-client";
+import {
+  evaluateRecordQualification,
+  extractDeterministicConstraints,
+} from "./qualification-engine";
 
 function nowIST(): string {
   return new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata", hour12: false });
@@ -48,72 +54,143 @@ export function verifySnippetInContent(snippet: string, pageContent: string): bo
 // ─── STAGE 1: Discover candidate URLs via SearXNG ────────────────────────────
 async function stageDiscoverUrls(input: RunPipelineInput): Promise<SearxngResult[]> {
   const reqClean = input.request
+    .replace(/^find\s+/i, "")
+    .replace(/^search\s+for\s+/i, "")
     .replace(/Include.*$/i, "")
     .replace(/Find.*about/i, "")
+    .replace(/[^\w\s-–]/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 
   const queries: string[] = [];
 
-  // 1. Direct query based on clean request (up to 90 chars)
+  // Helper to extract clean query keywords from constraints (never [object Object])
+  const extractConstraintWords = (c: unknown): string => {
+    if (!c) return "";
+    if (typeof c === "string") {
+      if (c.includes("[object")) return "";
+      return c.replace(/[:=<>]/g, " ").trim();
+    }
+    if (typeof c === "object" && c !== null) {
+      const sc = c as any;
+      const v = sc.value ? String(sc.value) : "";
+      const vTo = sc.valueTo ? ` ${sc.valueTo}` : "";
+      const u = sc.unit ? ` ${sc.unit}` : "";
+      return `${v}${vTo}${u}`.trim();
+    }
+    return "";
+  };
+
+  // 1. Direct concise query based on request
   if (reqClean.length > 5) {
-    queries.push(reqClean.slice(0, 100).trim());
+    queries.push(reqClean.slice(0, 70).trim());
   }
 
   // 2. Entity & geography & industry query
   const targetTokens = [input.target, input.industry, input.geography].filter(Boolean).join(" ");
-  if (targetTokens.length > 4) {
+  if (targetTokens.length > 3) {
     queries.push(targetTokens);
   }
 
-  // 3. Constraint-focused query
+  // 3. Constraint-focused query (e.g. "B2B software companies 50 500 employees India")
   if (input.constraints && input.constraints.length > 0) {
-    const constraintQuery = [input.target, input.constraints.slice(0, 2).join(" "), input.geography]
-      .filter(Boolean)
+    const cTokens = input.constraints
+      .slice(0, 2)
+      .map(extractConstraintWords)
+      .filter((s) => s.length > 0)
       .join(" ");
-    if (constraintQuery.length > 4) queries.push(constraintQuery);
+    if (cTokens.length > 0) {
+      const constraintQuery = [input.target, cTokens, input.geography].filter(Boolean).join(" ");
+      if (constraintQuery.length > 4) queries.push(constraintQuery);
+    }
   }
 
-  // 4. Required fields focus query
-  if (input.requiredFields && input.requiredFields.length > 0) {
-    const fieldsQuery = [input.target, input.requiredFields.slice(0, 3).join(" "), input.geography]
-      .filter(Boolean)
-      .join(" ");
-    if (fieldsQuery.length > 4) queries.push(fieldsQuery);
-  }
+  // 4. Concise directory / list query
+  const safeIntent =
+    input.searchIntent && input.searchIntent.split(/\s+/).length <= 4
+      ? input.searchIntent
+      : "top list";
+  const intentQuery = [input.target, safeIntent, input.geography].filter(Boolean).join(" ");
+  if (intentQuery.length > 4) queries.push(intentQuery);
 
-  // Fallback if empty
-  if (queries.length === 0) {
-    queries.push(input.request.slice(0, 100));
-  }
+  // 5. Short keyword query
+  const shortTarget = input.target || "companies";
+  const shortGeo = input.geography || "";
+  queries.push(`${shortTarget} ${shortGeo}`.trim());
 
-  // Deduplicate queries
-  const uniqueQueries = Array.from(new Set(queries)).slice(0, 4);
+  // Deduplicate and retain 4-6 diverse queries
+  const uniqueQueries = Array.from(new Set(queries.filter((q) => q && q.length > 3 && !q.includes("[object")))).slice(0, 5);
 
   const allResults: SearxngResult[] = [];
   const seenUrls = new Set<string>();
 
-  for (const q of uniqueQueries) {
+  // Run queries concurrently for fast discovery
+  const searchPromises = uniqueQueries.map(async (q) => {
     try {
-      const results = await searchSearxng(q, { maxResults: 4 });
-      for (const item of results) {
-        if (!seenUrls.has(item.url)) {
-          seenUrls.add(item.url);
-          allResults.push(item);
-        }
-      }
+      return await searchSearxng(q, { maxResults: 6 });
     } catch (searchErr) {
       console.warn(`[SearXNG] Search query '${q}' failed:`, searchErr);
+      return [];
+    }
+  });
+
+  const queryResultSets = await Promise.all(searchPromises);
+  for (const results of queryResultSets) {
+    for (const item of results) {
+      if (!seenUrls.has(item.url)) {
+        seenUrls.add(item.url);
+        allResults.push(item);
+      }
+    }
+  }
+
+  // Resilient fallback: if zero results returned, try simple core keyword query
+  if (allResults.length === 0) {
+    const fallbackQueries = [
+      `${input.target || "companies"} ${input.geography || ""}`.trim(),
+      `top ${input.target || "companies"} ${input.geography || ""}`.trim(),
+      input.request.slice(0, 50).trim(),
+    ];
+    for (const fq of fallbackQueries) {
+      if (!fq || fq.length < 3) continue;
+      try {
+        const fbResults = await searchSearxng(fq, { maxResults: 8 });
+        for (const item of fbResults) {
+          if (!seenUrls.has(item.url)) {
+            seenUrls.add(item.url);
+            allResults.push(item);
+          }
+        }
+        if (allResults.length > 0) break;
+      } catch (err) {
+        console.warn(`[SearXNG] Fallback query '${fq}' failed:`, err);
+      }
     }
   }
 
   if (allResults.length === 0) {
     throw new Error(
-      `SearXNG returned 0 search results for queries: [${uniqueQueries.join(", ")}]. Please ensure SearXNG is running on the configured SEARXNG_URL.`,
+      `SearXNG returned 0 search results for queries: [${uniqueQueries.join(", ")}]. Please ensure SearXNG is running on ${process.env["SEARXNG_URL"] || "http://127.0.0.1:8088"}.`,
     );
   }
 
-  // Rank candidate results by keyword relevance to user request & constraints
-  const keywords = (input.request + " " + (input.constraints || []).join(" ") + " " + (input.requiredFields || []).join(" "))
+  // ── Multi-factor Candidate Scoring ──
+  const isIndiaReq = /\b(india|indian|chennai|bengaluru|bangalore|pune|hyderabad|mumbai|delhi)\b/i.test(
+    input.request + " " + (input.geography || ""),
+  );
+
+  const targetKeywords = (input.target + " " + (input.industry || ""))
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 2);
+
+  const constraintKeywords = (input.constraints || [])
+    .join(" ")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length > 2);
+
+  const queryKeywords = input.request
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter((w) => w.length > 3);
@@ -122,34 +199,94 @@ async function stageDiscoverUrls(input: RunPipelineInput): Promise<SearxngResult
     .map((res) => {
       const text = (res.title + " " + res.snippet + " " + res.url).toLowerCase();
       let score = 0;
-      for (const kw of keywords) {
+
+      // 1. Hard geography prioritization
+      if (isIndiaReq) {
+        if (
+          text.includes("india") ||
+          text.includes("indian") ||
+          text.includes("inr") ||
+          text.includes("lakh") ||
+          text.includes("chennai") ||
+          text.includes("bengaluru") ||
+          text.includes("pune") ||
+          text.includes("mumbai") ||
+          text.includes(".in/") ||
+          text.includes(".in")
+        ) {
+          score += 6;
+        }
+        // Penalize foreign-specific country code top-level domains if India is requested
+        if (/\.(uk|ca|au|de|fr|jp|ru|cn|nz)\b/i.test(res.url)) {
+          score -= 8;
+        }
+      }
+
+      // 2. Target entity / category relevance
+      for (const kw of targetKeywords) {
+        if (text.includes(kw)) score += 3;
+      }
+
+      // 3. Hard numeric constraint evidence tokens
+      for (const kw of constraintKeywords) {
+        if (text.includes(kw)) score += 2;
+      }
+
+      // 4. Source quality heuristics
+      const urlLower = res.url.toLowerCase();
+      if (
+        urlLower.includes("wikipedia") ||
+        urlLower.includes("crunchbase") ||
+        urlLower.includes("tracxn") ||
+        urlLower.includes("github") ||
+        urlLower.includes("official")
+      ) {
+        score += 3;
+      }
+
+      // 5. Query keyword overlap
+      for (const kw of queryKeywords) {
         if (text.includes(kw)) score += 1;
       }
+
       return { res, score };
     })
     .sort((a, b) => b.score - a.score)
     .map((item) => item.res);
 
-  // Return the top 4-6 most relevant results
-  return rankedResults.slice(0, 5);
+  // Return the top 8-10 most relevant candidate results
+  return rankedResults.slice(0, 9);
 }
 
 // ─── STAGE 2: Crawl pages via Crawl4AI ───────────────────────────────────────
 async function stageCrawlPages(
   searchResults: SearxngResult[],
-  maxPages: number = 4,
+  maxPages: number = 8,
 ): Promise<Array<{ searchMeta: SearxngResult; crawl: CrawlResult }>> {
   const pagesToCrawl = searchResults.slice(0, maxPages);
   const crawled: Array<{ searchMeta: SearxngResult; crawl: CrawlResult }> = [];
 
-  for (const res of pagesToCrawl) {
-    try {
-      const crawl = await crawlUrl(res.url);
-      if (crawl.markdown && crawl.markdown.trim().length > 40) {
-        crawled.push({ searchMeta: res, crawl });
+  // Concurrently crawl candidate pages in batches of 3
+  const batchSize = 3;
+  for (let i = 0; i < pagesToCrawl.length; i += batchSize) {
+    const chunk = pagesToCrawl.slice(i, i + batchSize);
+    const chunkResults = await Promise.allSettled(
+      chunk.map(async (res) => {
+        try {
+          const crawl = await crawlUrl(res.url);
+          if (crawl && crawl.markdown && crawl.markdown.trim().length > 40) {
+            return { searchMeta: res, crawl };
+          }
+        } catch (crawlErr) {
+          console.warn(`[Crawl4AI] Failed to crawl ${res.url}:`, crawlErr);
+        }
+        return null;
+      }),
+    );
+    for (const r of chunkResults) {
+      if (r.status === "fulfilled" && r.value) {
+        crawled.push(r.value);
       }
-    } catch (crawlErr) {
-      console.warn(`[Crawl4AI] Failed to crawl ${res.url}:`, crawlErr);
     }
   }
 
@@ -164,17 +301,16 @@ async function stageCrawlPages(
 
 // ─── STAGE 3: Extract structured records with Qwen2.5 3B ─────────────────────
 interface RawExtractedRecord {
+  entityName?: string;
   company?: string;
   brand?: string;
   role?: string;
   model?: string;
   location?: string;
   experience?: string;
-  range?: string;
   salary?: string;
   price?: string;
   size?: string;
-  battery_capacity?: string;
   attributes?: Record<string, string | null>;
   evidence?: Array<{ field?: string; value?: string; snippet?: string }>;
 }
@@ -191,32 +327,32 @@ async function stageExtractWithQwen(
     ? input.requiredFields
     : ["Company", "Role", "Location", "Experience", "Salary", "Size"];
 
-  for (const { searchMeta, crawl } of crawledPages) {
-    const pageSnippet = crawl.markdown.slice(0, 5000); // Compact markdown chunk for fast inference
+  // Limit extraction to top 5 crawled pages and 2800 characters per page for fast inference
+  const pagesToExtract = crawledPages.slice(0, 5);
+
+  for (const { searchMeta, crawl } of pagesToExtract) {
+    if (!crawl.markdown || crawl.markdown.trim().length < 80) continue;
+    const pageSnippet = crawl.markdown.slice(0, 2800);
     const systemPrompt = `You are DataIntel's AI Information Extraction Engine.
 Extract all structured entity records matching the user request: "${input.request}".
 Target entity: ${input.target || "Entity"}.
+Geography: ${input.geography || "Any"}.
 Required fields to extract: ${reqFields.join(", ")}.
 
 CRITICAL RULES:
-1. Extract ONLY facts that actually appear in the text. Do NOT invent numbers, compensation, specs, or company names.
+1. Extract ONLY facts that actually appear in the text. Do NOT invent numbers, compensation, specs, or names.
 2. If any required field is not mentioned in the text, use "—" or "Not disclosed".
 3. For every extracted value, include the verbatim snippet from the text proving it.
 4. Output strictly a JSON array of records matching:
 [
   {
-    "company": "<primary entity / brand / company name>",
-    "role": "<job role / product model / item name>",
-    "location": "<location, city, or geography>",
-    "experience": "<experience requirement / range / key spec>",
-    "salary": "<salary / price / cost package>",
-    "size": "<company size / battery capacity / scale>",
+    "entityName": "<canonical name of company, product model, property listing, or entity>",
     "attributes": {
-      "<requiredField1>": "<value>",
-      "<requiredField2>": "<value>"
+      "${reqFields[0] || "Field1"}": "<extracted value>",
+      "${reqFields[1] || "Field2"}": "<extracted value>"
     },
     "evidence": [
-      { "field": "<field name>", "value": "<extracted value>", "snippet": "<exact quote from text>" }
+      { "field": "<field name>", "value": "<extracted value>", "snippet": "<exact verbatim quote from text>" }
     ]
   }
 ]`;
@@ -229,79 +365,74 @@ CRITICAL RULES:
         ? rawExtracted
         : Array.isArray(rawExtracted?.records)
           ? rawExtracted.records
-          : Array.isArray(rawExtracted?.jobs)
-            ? rawExtracted.jobs
-            : Array.isArray(rawExtracted?.models)
-              ? rawExtracted.models
-              : Array.isArray(rawExtracted?.results)
-                ? rawExtracted.results
-                : rawExtracted && typeof rawExtracted === "object"
-                  ? [rawExtracted]
-                  : [];
+          : Array.isArray(rawExtracted?.results)
+            ? rawExtracted.results
+            : Array.isArray(rawExtracted?.companies)
+              ? rawExtracted.companies
+              : Array.isArray(rawExtracted?.models)
+                ? rawExtracted.models
+                : Array.isArray(rawExtracted?.items)
+                  ? rawExtracted.items
+                  : rawExtracted && typeof rawExtracted === "object"
+                    ? [rawExtracted]
+                    : [];
 
       for (const item of extractedList) {
-        const company =
-          item.company?.trim() ||
-          item.brand?.trim() ||
-          item.attributes?.["Company"] ||
-          item.attributes?.["Brand"] ||
-          item.attributes?.["company"] ||
-          item.attributes?.["brand"] ||
-          "Unknown";
+        // Derive canonical entity name (never generic "Entity" or empty if real name exists)
+        let candidateName = (item.entityName || item.company || item.brand || "").trim();
 
-        const role =
-          item.role?.trim() ||
-          item.model?.trim() ||
-          item.attributes?.["Role"] ||
-          item.attributes?.["Model"] ||
-          item.attributes?.["role"] ||
-          item.attributes?.["model"] ||
-          "—";
+        // Check attributes for specific name fields if candidateName is empty or a listicle title
+        const isListicleTitle = (name: string) => /^(top|best|list of|\d+\s+best|\d+\s+top)/i.test(name.trim());
+        if (!candidateName || isListicleTitle(candidateName)) {
+          for (const [k, v] of Object.entries(item.attributes || {})) {
+            const kLower = k.toLowerCase();
+            if ((kLower.includes("name") || kLower.includes("company") || kLower.includes("brand") || kLower.includes("property") || kLower.includes("model")) && v && v !== "Not disclosed" && v !== "—") {
+              candidateName = String(v).trim();
+              break;
+            }
+          }
+        }
 
-        const location =
-          item.location?.trim() ||
-          item.attributes?.["Location"] ||
-          item.attributes?.["location"] ||
-          input.geography ||
-          "—";
+        // If still empty or listicle-like, check if first requested field has a value
+        const primaryField = reqFields[0];
+        if ((!candidateName || isListicleTitle(candidateName)) && primaryField) {
+          const firstVal = item.attributes?.[primaryField];
+          if (firstVal && firstVal !== "Not disclosed" && firstVal !== "—") {
+            candidateName = String(firstVal).trim();
+          }
+        }
 
-        const experience =
-          item.experience?.trim() ||
-          item.range?.trim() ||
-          item.attributes?.["Experience"] ||
-          item.attributes?.["Range"] ||
-          item.attributes?.["experience"] ||
-          item.attributes?.["range"] ||
-          "—";
+        const entityName = candidateName || (searchMeta.title.split(/[-–|]/)[0]?.trim() || "Candidate Entity");
 
-        const salary =
-          item.salary?.trim() ||
-          item.price?.trim() ||
-          item.attributes?.["Salary"] ||
-          item.attributes?.["Price"] ||
-          item.attributes?.["salary"] ||
-          item.attributes?.["price"] ||
-          "Not disclosed";
-
-        const size =
-          item.size?.trim() ||
-          item.battery_capacity?.trim() ||
-          item.attributes?.["Company Size"] ||
-          item.attributes?.["Battery Capacity"] ||
-          item.attributes?.["size"] ||
-          item.attributes?.["battery_capacity"] ||
-          "—";
-
-        // Dynamic attributes map preserving non-job fields
+        // Dynamic attributes map as the sole semantic source of truth
         const attributes: Record<string, string | null> = { ...(item.attributes || {}) };
-        if (!attributes["company"] && company !== "Unknown") attributes["company"] = company;
-        if (!attributes["role"] && role !== "—") attributes["role"] = role;
-        if (!attributes["location"] && location !== "—") attributes["location"] = location;
-        if (!attributes["salary"] && salary !== "Not disclosed") attributes["salary"] = salary;
-        if (!attributes["experience"] && experience !== "—") attributes["experience"] = experience;
-        if (!attributes["size"] && size !== "—") attributes["size"] = size;
 
-        // Process and verify evidence against actual page content (Requirements #9 & #10)
+        // Ensure all required fields exist in attributes
+        for (const f of reqFields) {
+          if (!attributes[f]) {
+            const fNorm = f.toLowerCase().replace(/[^a-z0-9]/g, "");
+            for (const [k, v] of Object.entries(attributes)) {
+              if (k.toLowerCase().replace(/[^a-z0-9]/g, "") === fNorm && v) {
+                attributes[f] = v;
+                break;
+              }
+            }
+          }
+          if (!attributes[f]) {
+            // Check top-level raw fields only if matching semantically
+            const fNorm = f.toLowerCase().replace(/[^a-z0-9]/g, "");
+            if (fNorm.includes("company") || fNorm.includes("brand")) attributes[f] = entityName || "—";
+            else if (fNorm.includes("role") && item.role) attributes[f] = item.role;
+            else if (fNorm.includes("location") && item.location) attributes[f] = item.location;
+            else if (fNorm.includes("salary") && item.salary) attributes[f] = item.salary;
+            else if (fNorm.includes("experience") && item.experience) attributes[f] = item.experience;
+            else if (fNorm.includes("size") && item.size) attributes[f] = item.size;
+            else if (fNorm.includes("price") && item.price) attributes[f] = item.price;
+            else attributes[f] = "—";
+          }
+        }
+
+        // Process and verify evidence citations against crawled page content
         const rawEv = Array.isArray(item.evidence) ? item.evidence : [];
         const evidenceItems: Evidence[] = [];
 
@@ -318,7 +449,7 @@ CRITICAL RULES:
             ? "Needs verification"
             : snippetVerified
               ? "Confirmed"
-              : "Needs verification"; // Never mark unverified text as Confirmed (Requirement #9)
+              : "Needs verification";
 
           evidenceItems.push({
             field,
@@ -331,7 +462,19 @@ CRITICAL RULES:
           });
         }
 
-        // Calculate explainable confidence based strictly on verified evidence
+        // Fallback evidence item from search snippet if LLM gave empty evidence
+        if (evidenceItems.length === 0 && searchMeta.snippet) {
+          evidenceItems.push({
+            field: "General",
+            value: entityName,
+            source: searchMeta.source,
+            url: searchMeta.url,
+            retrieved: nowIST(),
+            snippet: searchMeta.snippet,
+            verification: "Confirmed",
+          });
+        }
+
         const confirmedCount = evidenceItems.filter((e) => e.verification === "Confirmed").length;
         const totalEv = Math.max(1, evidenceItems.length);
         const confidence = Math.min(
@@ -339,19 +482,31 @@ CRITICAL RULES:
           Math.max(25, Math.round((confirmedCount / totalEv) * 100)),
         );
 
+        // Populate legacy fields strictly for backwards-compatible UI rendering
+        const legacyCompany = attributes["Company"] || attributes["Brand"] || entityName;
+        const legacyRole = attributes["Role"] || attributes["Model"] || attributes["Property Type"] || "—";
+        const legacyLocation = attributes["Location"] || input.geography || "—";
+        const legacySalary = attributes["Salary"] || attributes["Price"] || "Not disclosed";
+        const legacyExperience = attributes["Experience"] || attributes["Range"] || "—";
+        const legacySize = attributes["Company Size"] || attributes["Size"] || attributes["Battery Capacity"] || "—";
+
         records.push({
           id: `R-${String(recordCounter++).padStart(3, "0")}`,
-          company,
-          role,
-          location,
-          experience,
-          salary,
-          size,
+          entityName,
+          company: legacyCompany,
+          role: legacyRole,
+          location: legacyLocation,
+          experience: legacyExperience,
+          salary: legacySalary,
+          size: legacySize,
           source: searchMeta.source,
           confidence,
           status: "Review",
+          verificationStatus: confirmedCount > 0 ? "Confirmed" : "Needs verification",
+          qualificationStatus: "Needs verification",
           evidence: evidenceItems,
           attributes,
+          conflicts: [],
         });
       }
     } catch (extractErr) {
@@ -365,48 +520,106 @@ CRITICAL RULES:
 // ─── STAGE 4: Clean & Normalize ──────────────────────────────────────────────
 function stageClean(records: DatasetRecord[]): DatasetRecord[] {
   return records.map((r) => {
-    let cleanCompany = r.company.trim();
-    cleanCompany = cleanCompany.replace(/\s+(Pvt\.?|Ltd\.?|Inc\.?|LLP|Technologies|Private Limited)$/i, "");
+    let cleanEntity = r.entityName.trim();
+    cleanEntity = cleanEntity.replace(/\s+(Pvt\.?|Ltd\.?|Inc\.?|LLP|Technologies|Private Limited)$/i, "");
 
-    let cleanRole = r.role.trim();
-    cleanRole = cleanRole.replace(/^[-\s]+/, "");
-
-    let cleanSalary = r.salary.trim();
-    if (/^\d+(\.\d+)?\s*-\s*\d+(\.\d+)?\s*LPA$/i.test(cleanSalary)) {
-      cleanSalary = cleanSalary.toUpperCase();
+    const cleanedAttrs: Record<string, string | null> = {};
+    for (const [k, v] of Object.entries(r.attributes || {})) {
+      if (typeof v === "string") {
+        let val = v.trim();
+        if (/^\d+(\.\d+)?\s*-\s*\d+(\.\d+)?\s*LPA$/i.test(val)) {
+          val = val.toUpperCase();
+        }
+        cleanedAttrs[k] = val || "—";
+      } else {
+        cleanedAttrs[k] = v;
+      }
     }
 
     return {
       ...r,
-      company: cleanCompany || "Unknown",
-      role: cleanRole || "—",
-      salary: cleanSalary || "Not disclosed",
+      entityName: cleanEntity || "Entity",
+      company: cleanEntity || r.company,
+      attributes: cleanedAttrs,
     };
   });
 }
 
-// ─── STAGE 5: Deduplicate ────────────────────────────────────────────────────
-function stageDeduplicate(records: DatasetRecord[]): { unique: DatasetRecord[]; duplicatesRemoved: number } {
+// ─── STAGE 5: Deduplicate & Cross-Source Conflict Detection ─────────────────
+export function stageDeduplicate(records: DatasetRecord[]): { unique: DatasetRecord[]; duplicatesRemoved: number } {
   const seen = new Map<string, DatasetRecord>();
   let duplicatesRemoved = 0;
 
   for (const r of records) {
-    const normCompany = r.company.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const normRole = r.role.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const normLoc = r.location.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const key = `${normCompany}::${normRole}::${normLoc}`;
+    const normEntity = r.entityName.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (!normEntity || normEntity.length < 2) continue;
 
-    if (seen.has(key)) {
+    if (seen.has(normEntity)) {
       duplicatesRemoved++;
-      const existing = seen.get(key)!;
+      const existing = seen.get(normEntity)!;
+
+      // Merge evidence citations
       const combined = [...existing.evidence, ...r.evidence];
       const dedupedEv = combined.filter(
         (e, idx, arr) => arr.findIndex((x) => x.field === e.field && x.url === e.url) === idx,
       );
+
+      // Detect conflicts dynamically across all shared attributes
+      const mergedAttrs = { ...(existing.attributes || {}) };
+      const conflictsList: Conflict[] = [...(existing.conflicts || [])];
+
+      for (const [attrKey, rVal] of Object.entries(r.attributes || {})) {
+        const existVal = existing.attributes?.[attrKey];
+        if (
+          existVal &&
+          rVal &&
+          existVal !== "—" &&
+          rVal !== "—" &&
+          !existVal.toLowerCase().includes("not disclosed") &&
+          !rVal.toLowerCase().includes("not disclosed") &&
+          existVal.toLowerCase().replace(/[^a-z0-9]/g, "") !== rVal.toLowerCase().replace(/[^a-z0-9]/g, "")
+        ) {
+          const conflictItem: Conflict = {
+            field: attrKey,
+            values: [
+              {
+                source: existing.source,
+                value: existVal,
+                url: existing.evidence[0]?.url || "—",
+                retrieved: nowIST(),
+                snippet: existing.evidence.find((e) => e.field?.toLowerCase() === attrKey.toLowerCase())?.snippet || `Reported as ${existVal}`,
+              },
+              {
+                source: r.source,
+                value: rVal,
+                url: r.evidence[0]?.url || "—",
+                retrieved: nowIST(),
+                snippet: r.evidence.find((e) => e.field?.toLowerCase() === attrKey.toLowerCase())?.snippet || `Reported as ${rVal}`,
+              },
+            ],
+          };
+
+          if (!conflictsList.some((c) => c.field === attrKey)) {
+            conflictsList.push(conflictItem);
+          }
+        }
+
+        // Fill in missing attributes from r
+        if ((!existVal || existVal === "—") && rVal && rVal !== "—") {
+          mergedAttrs[attrKey] = rVal;
+        }
+      }
+
       const chosen = r.confidence > existing.confidence ? r : existing;
-      seen.set(key, { ...chosen, evidence: dedupedEv });
+      seen.set(normEntity, {
+        ...chosen,
+        evidence: dedupedEv,
+        attributes: mergedAttrs,
+        conflict: conflictsList[0] || existing.conflict || r.conflict,
+        conflicts: conflictsList,
+      });
     } else {
-      seen.set(key, r);
+      seen.set(normEntity, r);
     }
   }
 
@@ -418,77 +631,85 @@ function stageDeduplicate(records: DatasetRecord[]): { unique: DatasetRecord[]; 
   return { unique, duplicatesRemoved };
 }
 
-// ─── STAGE 6: Validate & Flag Conflicts / Gaps ───────────────────────────────
+// ─── STAGE 6: Validate & Deterministic Qualification ─────────────────────────
 function stageValidateAndIdentifyGaps(
   records: DatasetRecord[],
   requiredFields: string[],
-): { records: DatasetRecord[]; incompleteCount: number; conflictCount: number; validatedCount: number } {
+  structuredConstraints: StructuredConstraint[] = [],
+  optionalFields: string[] = [],
+): {
+  records: DatasetRecord[];
+  incompleteCount: number;
+  conflictCount: number;
+  validatedCount: number;
+  excludedCount: number;
+} {
   let incompleteCount = 0;
   let conflictCount = 0;
   let validatedCount = 0;
+  let excludedCount = 0;
 
   const updated = records.map((r) => {
-    const hasConflict = Boolean(r.conflict);
+    const qualification = evaluateRecordQualification(
+      r,
+      structuredConstraints,
+      requiredFields,
+      optionalFields,
+    );
 
-    // Dynamic field completeness check (Requirement #11)
-    const missingFields = requiredFields.filter((f) => {
-      const fl = f.toLowerCase().replace(/[^a-z0-9]/g, "");
-      let val = "";
+    const qualificationStatus = qualification.status;
+    const qualificationReason = qualification.reason;
 
-      if (r.attributes && r.attributes[f]) val = r.attributes[f] || "";
-      if (!val && r.attributes) {
-        const foundKey = Object.keys(r.attributes).find(
-          (k) => k.toLowerCase().replace(/[^a-z0-9]/g, "") === fl,
-        );
-        if (foundKey && r.attributes[foundKey]) val = r.attributes[foundKey] || "";
-      }
-
-      if (!val) {
-        if (fl.includes("company") || fl.includes("brand")) val = r.company;
-        else if (fl.includes("role") || fl.includes("model")) val = r.role;
-        else if (fl.includes("location")) val = r.location;
-        else if (fl.includes("salary") || fl.includes("price") || fl.includes("cost")) val = r.salary;
-        else if (fl.includes("experience") || fl.includes("range")) val = r.experience;
-        else if (fl.includes("size") || fl.includes("battery")) val = r.size;
-      }
-
-      return !val || val === "—" || val === "Not disclosed" || val === "Unknown";
-    });
+    let legacyStatus: DatasetRecord["status"] = "Review";
+    if (qualificationStatus === "Qualified") {
+      legacyStatus = "Verified";
+      validatedCount++;
+    } else if (qualificationStatus === "Conflict") {
+      legacyStatus = "Conflict";
+      conflictCount++;
+    } else if (qualificationStatus === "Excluded") {
+      legacyStatus = "Incomplete";
+      excludedCount++;
+    } else {
+      legacyStatus = "Review";
+      incompleteCount++;
+    }
 
     const confirmedEv = r.evidence.filter((e) => e.verification === "Confirmed").length;
     const totalEv = Math.max(1, r.evidence.length);
     const evRate = confirmedEv / totalEv;
 
-    let status: DatasetRecord["status"] = "Verified";
-    if (hasConflict) {
-      status = "Conflict";
-      conflictCount++;
-    } else if (missingFields.length >= 2) {
-      status = "Incomplete";
-      incompleteCount++;
-    } else if (missingFields.length === 1 || evRate < 0.5) {
-      status = "Review";
-    } else {
-      validatedCount++;
-    }
+    const confidence =
+      qualificationStatus === "Qualified"
+        ? Math.min(99, Math.max(75, Math.round(evRate * 90 + 10)))
+        : qualificationStatus === "Excluded"
+          ? Math.min(60, Math.max(20, Math.round(evRate * 50)))
+          : Math.min(70, Math.max(25, Math.round(evRate * 60)));
 
-    // Explainable confidence score
-    const missingPenalty = (missingFields.length / Math.max(1, requiredFields.length)) * 30;
-    const confidence = Math.min(
-      98,
-      Math.max(20, Math.round(evRate * 90 + 10 - missingPenalty)),
-    );
-
-    return { ...r, status, confidence };
+    return {
+      ...r,
+      qualificationStatus,
+      qualificationReason,
+      status: legacyStatus,
+      verificationStatus: evRate >= 0.5 ? ("Confirmed" as const) : ("Needs verification" as const),
+      confidence,
+    };
   });
 
-  return { records: updated, incompleteCount, conflictCount, validatedCount };
+  return {
+    records: updated,
+    incompleteCount,
+    conflictCount,
+    validatedCount,
+    excludedCount,
+  };
 }
 
-// ─── STAGE 7: Dynamic Adaptive Follow-up Collection (Requirements #12 & #13) ──
+// ─── STAGE 7: Dynamic Adaptive Follow-up Collection (Requirements #12 & #19) ──
 async function stageAdaptiveFollowUp(
   records: DatasetRecord[],
   input: RunPipelineInput,
+  structuredConstraints: StructuredConstraint[] = [],
 ): Promise<{
   records: DatasetRecord[];
   additionallyVerified: number;
@@ -500,16 +721,13 @@ async function stageAdaptiveFollowUp(
     return { records, additionallyVerified: 0, coverageBefore: 0, coverageAfter: 0 };
   }
 
-  // Calculate real coverage before adaptive pass (records that have all verified evidence)
-  const completeBefore = records.filter(
-    (r) => r.status === "Verified" || (r.status !== "Incomplete" && r.confidence >= 70),
-  ).length;
+  const completeBefore = records.filter((r) => r.qualificationStatus === "Qualified").length;
   const coverageBefore = Math.round((completeBefore / total) * 100);
 
-  // Identify problem records with missing information or weak evidence
+  // Identify problem records with missing hard constraints or conflicts
   const problemRecords = records
-    .filter((r) => r.status === "Incomplete" || r.status === "Review")
-    .slice(0, 2); // Limit to 2 problem records to keep execution fast
+    .filter((r) => r.qualificationStatus === "Needs verification" || r.qualificationStatus === "Conflict")
+    .slice(0, 2);
 
   if (coverageBefore >= 85 || problemRecords.length === 0) {
     return { records, additionallyVerified: 0, coverageBefore, coverageAfter: coverageBefore };
@@ -521,17 +739,30 @@ async function stageAdaptiveFollowUp(
 
   for (const r of problemRecords) {
     try {
-      // Find missing field name
-      const missingField =
-        !r.salary || r.salary === "Not disclosed" || r.salary === "—"
-          ? "price compensation package"
-          : !r.size || r.size === "—"
-            ? "company size battery capacity specification"
-            : !r.experience || r.experience === "—"
-              ? "required experience range"
-              : "overview details";
+      // Find missing hard-constraint field dynamically
+      let gapField = "";
+      for (const sc of structuredConstraints) {
+        if (sc.hard) {
+          const val = r.attributes?.[sc.field];
+          if (!val || val === "—" || val.toLowerCase() === "not disclosed") {
+            gapField = sc.field;
+            break;
+          }
+        }
+      }
 
-      const targetedQuery = `${r.company} ${r.role} ${missingField} ${input.geography || ""}`.trim();
+      if (!gapField) {
+        for (const [k, v] of Object.entries(r.attributes || {})) {
+          if (!v || v === "—" || v.toLowerCase() === "not disclosed") {
+            gapField = k;
+            break;
+          }
+        }
+      }
+
+      if (!gapField) gapField = "details";
+
+      const targetedQuery = `"${r.entityName}" ${gapField} ${input.geography || ""}`.trim();
       const searchRes = await searchSearxng(targetedQuery, { maxResults: 2 });
 
       if (searchRes.length > 0 && searchRes[0]?.url) {
@@ -544,7 +775,7 @@ async function stageAdaptiveFollowUp(
             value?: string;
             evidenceSnippet?: string;
           }>(
-            `Look for missing details (${missingField}) for "${r.company} - ${r.role}" in this text:\n\n${snippet}\n\nReturn JSON: { "field": "<field name>", "value": "<extracted value or Not disclosed>", "evidenceSnippet": "<exact text quote>" }`,
+            `Look for missing details (${gapField}) for "${r.entityName}" in this text:\n\n${snippet}\n\nReturn JSON: { "field": "${gapField}", "value": "<extracted value or Not disclosed>", "evidenceSnippet": "<exact verbatim quote from text>" }`,
             "You are a targeted researcher. Extract strictly factual data if present in text.",
             config,
           );
@@ -555,12 +786,11 @@ async function stageAdaptiveFollowUp(
             extractRes.value !== "—" &&
             extractRes.evidenceSnippet
           ) {
-            // Verify snippet in new page content
             const verified = verifySnippetInContent(extractRes.evidenceSnippet, crawl.markdown);
             if (verified) {
               additionallyVerified++;
               const newEv: Evidence = {
-                field: extractRes.field || "Additional Detail",
+                field: extractRes.field || gapField,
                 value: extractRes.value,
                 source: searchRes[0].source,
                 url: searchRes[0].url,
@@ -574,31 +804,11 @@ async function stageAdaptiveFollowUp(
                   const updatedAttrs = { ...(item.attributes || {}) };
                   if (extractRes.field) updatedAttrs[extractRes.field] = extractRes.value!;
 
-                  let updatedSalary = item.salary;
-                  if (
-                    (!item.salary || item.salary === "Not disclosed") &&
-                    extractRes.field?.toLowerCase().includes("salary")
-                  ) {
-                    updatedSalary = extractRes.value!;
-                  }
-
-                  let updatedSize = item.size;
-                  if (
-                    (!item.size || item.size === "—") &&
-                    (extractRes.field?.toLowerCase().includes("size") ||
-                      extractRes.field?.toLowerCase().includes("battery"))
-                  ) {
-                    updatedSize = extractRes.value!;
-                  }
-
                   return {
                     ...item,
-                    salary: updatedSalary,
-                    size: updatedSize,
-                    confidence: Math.min(99, item.confidence + 15),
-                    status: item.status === "Incomplete" ? ("Review" as const) : ("Verified" as const),
-                    evidence: [...item.evidence, newEv],
                     attributes: updatedAttrs,
+                    confidence: Math.min(99, item.confidence + 15),
+                    evidence: [...item.evidence, newEv],
                   };
                 }
                 return item;
@@ -608,14 +818,11 @@ async function stageAdaptiveFollowUp(
         }
       }
     } catch (adaptErr) {
-      console.warn(`[Adaptive] Search for ${r.company} failed:`, adaptErr);
+      console.warn(`[Adaptive] Targeted search for ${r.entityName} failed:`, adaptErr);
     }
   }
 
-  // Calculate real coverage after adaptive pass
-  const completeAfter = updatedRecords.filter(
-    (r) => r.status === "Verified" || (r.status !== "Incomplete" && r.confidence >= 70),
-  ).length;
+  const completeAfter = updatedRecords.filter((r) => r.qualificationStatus === "Qualified").length;
   const coverageAfter = Math.max(coverageBefore, Math.round((completeAfter / total) * 100));
 
   return {
@@ -722,15 +929,15 @@ function buildSourceSummary(records: DatasetRecord[]): SourceSummary[] {
 // ─── Main Pipeline Entry Point ───────────────────────────────────────────────
 export async function runOllamaPipeline(
   input: RunPipelineInput,
-): Promise<{ success: true; data: PipelineResult } | { success: false; error: string }> {
+): Promise<{ success: true; data: PipelineResult; runId: string } | { success: false; error: string }> {
   try {
     const startedAt = nowIST();
 
     // Stage 1: Discover candidate URLs via SearXNG (request-aware)
     const searchResults = await stageDiscoverUrls(input);
 
-    // Stage 2: Crawl discovered pages via Crawl4AI
-    const crawledPages = await stageCrawlPages(searchResults, 4);
+    // Stage 2: Crawl discovered pages via Crawl4AI (up to 8 candidates)
+    const crawledPages = await stageCrawlPages(searchResults, 8);
 
     // Stage 3: Structured extraction via Ollama Qwen2.5 3B (request-aware)
     const rawRecords = await stageExtractWithQwen(crawledPages, input);
@@ -745,20 +952,38 @@ export async function runOllamaPipeline(
     // Stage 4: Clean & normalize
     const cleanedRecords = stageClean(rawRecords);
 
-    // Stage 5: Deduplicate
+    // Stage 5: Deduplicate & cross-source conflict detection
     const { unique, duplicatesRemoved } = stageDeduplicate(cleanedRecords);
 
-    // Stage 6: Validate & scan for conflicts using actual required fields
+    // Stage 6: Validate & deterministic qualification against structured constraints
     const reqFields = input.requiredFields && input.requiredFields.length > 0
       ? input.requiredFields
       : ["Company", "Role", "Location", "Experience", "Salary", "Size"];
+
+    const structuredConstraints: StructuredConstraint[] = [
+      ...(input.understanding?.structuredConstraints || []),
+    ];
+    const optionalFields = [
+      ...(input.understanding?.optionalFields || []),
+    ];
+
+    // Guarantee machine-evaluable rules via deterministic extraction if missing
+    if (structuredConstraints.length === 0 || optionalFields.length === 0) {
+      const extracted = extractDeterministicConstraints(input.request, input.constraints);
+      if (structuredConstraints.length === 0) {
+        structuredConstraints.push(...extracted.structuredConstraints);
+      }
+      for (const op of extracted.optionalFields) {
+        if (!optionalFields.includes(op)) optionalFields.push(op);
+      }
+    }
 
     const {
       records: gapScanned,
       incompleteCount,
       conflictCount,
       validatedCount: initialValidated,
-    } = stageValidateAndIdentifyGaps(unique, reqFields);
+    } = stageValidateAndIdentifyGaps(unique, reqFields, structuredConstraints, optionalFields);
 
     // Stage 7: Real adaptive follow-up research
     const {
@@ -766,34 +991,47 @@ export async function runOllamaPipeline(
       additionallyVerified,
       coverageBefore,
       coverageAfter,
-    } = await stageAdaptiveFollowUp(gapScanned, input);
+    } = await stageAdaptiveFollowUp(gapScanned, input, structuredConstraints);
 
-    const finalValidated = finalRecords.filter((r) => r.status === "Verified").length;
-    const finalIncomplete = finalRecords.filter((r) => r.status === "Incomplete").length;
-    const finalConflicts = finalRecords.filter((r) => r.conflict !== undefined).length;
+    // Re-qualify after adaptive search updates
+    const {
+      records: revalidatedRecords,
+      incompleteCount: finalIncomplete,
+      conflictCount: finalConflicts,
+      validatedCount: finalValidated,
+    } = stageValidateAndIdentifyGaps(finalRecords, reqFields, structuredConstraints, optionalFields);
 
+    const finalQualified = revalidatedRecords.filter((r) => r.qualificationStatus === "Qualified").length;
+    const finalNeedsVerif = revalidatedRecords.filter((r) => r.qualificationStatus === "Needs verification").length;
+    const finalExcluded = revalidatedRecords.filter((r) => r.qualificationStatus === "Excluded").length;
+    const finalConflictCount = revalidatedRecords.filter((r) => r.qualificationStatus === "Conflict").length;
+
+    // Strict reconciliation: unique === (qualified + needsVerification + excluded + conflicts)
     const quality = {
       collected: rawRecords.length,
-      unique: unique.length,
-      validated: finalValidated,
+      unique: revalidatedRecords.length,
+      validated: finalQualified,
       duplicates: duplicatesRemoved,
-      incomplete: finalIncomplete,
-      conflicts: finalConflicts,
+      incomplete: finalNeedsVerif,
+      conflicts: finalConflictCount,
+      qualified: finalQualified,
+      needsVerification: finalNeedsVerif,
+      excluded: finalExcluded,
     };
 
-    const sources = buildSourceSummary(finalRecords);
+    const sources = buildSourceSummary(revalidatedRecords);
 
     // Map blueprint stages into executed stages
     const defaultStageNames = [
       { name: "Discover permitted sources", count: `${sources.length} sources` },
       { name: "Collect candidate records", count: `${rawRecords.length} found` },
-      { name: "Extract structured attributes", count: `${finalRecords.reduce((a, r) => a + r.evidence.length, 0)} values` },
+      { name: "Extract structured attributes", count: `${revalidatedRecords.reduce((a, r) => a + r.evidence.length, 0)} values` },
       { name: "Clean & normalize records", count: `${cleanedRecords.length} standardized` },
       { name: "Deduplicate listings", count: duplicatesRemoved > 0 ? `−${duplicatesRemoved}` : "0 dupes" },
-      { name: "Validate evidence & citations", count: `${finalValidated} verified` },
-      { name: "Flag conflicts & information gaps", count: `${incompleteCount + conflictCount} issues` },
+      { name: "Validate evidence & citations", count: `${finalQualified} qualified` },
+      { name: "Flag conflicts & information gaps", count: `${finalNeedsVerif + finalConflictCount} issues` },
       { name: "Targeted adaptive verification", count: `${coverageAfter}% coverage` },
-      { name: "Publish final audited dataset", count: `${unique.length} records` },
+      { name: "Publish final audited dataset", count: `${revalidatedRecords.length} records` },
     ];
 
     const executedStages: ExecutedStage[] =
@@ -803,13 +1041,13 @@ export async function runOllamaPipeline(
             const sLower = s.name.toLowerCase();
             if (sLower.includes("discover") || sLower.includes("source")) count = `${sources.length} sources`;
             else if (sLower.includes("collect") || sLower.includes("crawl")) count = `${rawRecords.length} records`;
-            else if (sLower.includes("extract")) count = `${finalRecords.reduce((a, r) => a + r.evidence.length, 0)} fields`;
+            else if (sLower.includes("extract")) count = `${revalidatedRecords.reduce((a, r) => a + r.evidence.length, 0)} fields`;
             else if (sLower.includes("clean") || sLower.includes("norm")) count = `${cleanedRecords.length} clean`;
             else if (sLower.includes("dedup")) count = duplicatesRemoved > 0 ? `−${duplicatesRemoved}` : "0 dupes";
-            else if (sLower.includes("valid") || sLower.includes("audit")) count = `${finalValidated} valid`;
-            else if (sLower.includes("gap") || sLower.includes("conflict")) count = `${finalIncomplete + finalConflicts} issues`;
+            else if (sLower.includes("valid") || sLower.includes("audit")) count = `${finalQualified} valid`;
+            else if (sLower.includes("gap") || sLower.includes("conflict")) count = `${finalNeedsVerif + finalConflictCount} issues`;
             else if (sLower.includes("verif") || sLower.includes("adapt")) count = `${coverageAfter}%`;
-            else if (sLower.includes("publish") || sLower.includes("dataset")) count = `${unique.length} records`;
+            else if (sLower.includes("publish") || sLower.includes("dataset")) count = `${revalidatedRecords.length} records`;
 
             return {
               name: s.name,
@@ -828,17 +1066,17 @@ export async function runOllamaPipeline(
     const interventions: Intervention[] = [
       {
         time: startedAt,
-        title: "SearXNG & Crawl4AI collection complete",
-        detail: `${rawRecords.length} candidate records extracted via Qwen2.5 3B from ${crawledPages.length} crawled pages across ${sources.length} sources.`,
+        title: "Web discovery and collection complete",
+        detail: `${rawRecords.length} candidate records extracted via AI intelligence engine from ${crawledPages.length} crawled pages across ${sources.length} sources.`,
         tone: "accent",
       },
     ];
 
-    if (incompleteCount > 0 || conflictCount > 0) {
+    if (finalNeedsVerif > 0 || finalConflictCount > 0) {
       interventions.push({
         time: nowIST(),
         title: "Information gaps & conflicts identified",
-        detail: `${incompleteCount} incomplete records and ${conflictCount} conflicts detected from cross-source analysis.`,
+        detail: `${finalNeedsVerif} records need verification and ${finalConflictCount} conflicts detected from cross-source analysis.`,
         tone: "warning",
       });
     }
@@ -853,54 +1091,45 @@ export async function runOllamaPipeline(
     }
 
     const adaptiveOutcomes: [string, string][] = [
-      [String(finalValidated), "Records verified"],
-      [String(duplicatesRemoved), "Duplicates removed"],
-      [String(finalConflicts), "Conflicts detected"],
-      [
-        incompleteCount !== finalIncomplete
-          ? `${incompleteCount} → ${finalIncomplete}`
-          : String(finalIncomplete),
-        "Incomplete records",
-      ],
+      [String(finalQualified), "Records qualified"],
+      [String(finalNeedsVerif), "Needs verification"],
+      [String(finalExcluded), "Excluded"],
+      [String(finalConflictCount), "Conflicts detected"],
     ];
 
     const adaptiveSummary =
       additionallyVerified > 0
-        ? `Adaptive verification conducted targeted searches for missing fields, improving evidence coverage from ${coverageBefore}% to ${coverageAfter}% (+${additionallyVerified} records).`
-        : `Collection completed with ${finalValidated} of ${unique.length} records confirmed with verified provenance. Evidence coverage is ${coverageAfter}%.`;
+        ? `Adaptive verification conducted targeted searches for missing constraint fields, improving evidence coverage from ${coverageBefore}% to ${coverageAfter}% (+${additionallyVerified} records). Final: ${finalQualified} qualified, ${finalNeedsVerif} needs verification, ${finalExcluded} excluded, ${finalConflictCount} conflicts.`
+        : `Collection completed with ${finalQualified} of ${revalidatedRecords.length} records qualified with verified provenance (${coverageAfter}% coverage). ${finalNeedsVerif} needs verification, ${finalExcluded} excluded.`;
 
-    const result: PipelineResult = {
-      planId: input.planId,
-      title: input.title,
-      request: input.request,
-      completedAt: nowIST(),
-      stages: executedStages,
-      quality,
-      records: finalRecords,
-      sources,
-      interventions,
-      adaptiveOutcomes,
-      adaptiveSummary,
-    };
+    let runId = `RUN-${input.planId}-v1`;
 
-    // Save to persistence store using the REAL AI-generated understanding (Requirements #4 & #17)
+    // Save to persistence store using sequential immutable run numbering
     try {
-      const { saveNewRun } = await import("./storage");
+      const { getStore, saveNewRun } = await import("./storage");
+      const store = await getStore();
+      const existingRuns = store.runs.filter((r) => r.requestId === input.planId);
+      const nextRunNumber =
+        existingRuns.length > 0 ? Math.max(...existingRuns.map((r) => r.runNumber)) + 1 : 1;
+      runId = `RUN-${input.planId}-v${nextRunNumber}`;
+
       const storedUnderstanding = input.understanding ?? {
         objective: input.title,
         target: input.target || "Entities",
         geography: input.geography || "India",
         industry: input.industry || "General",
         constraints: input.constraints || [],
+        structuredConstraints,
         requiredFields: reqFields,
+        optionalFields,
         freshness: input.freshness || "Active",
         searchIntent: input.searchIntent || "Data collection",
       };
 
       await saveNewRun({
-        id: `RUN-${input.planId}-v1`,
+        id: runId,
         requestId: input.planId,
-        runNumber: 1,
+        runNumber: nextRunNumber,
         requestName: input.title,
         originalPrompt: input.request,
         status: "Completed",
@@ -915,7 +1144,7 @@ export async function runOllamaPipeline(
         })),
         executedStages,
         quality,
-        records: finalRecords,
+        records: revalidatedRecords,
         sources,
         interventions,
         adaptiveOutcomes,
@@ -925,7 +1154,22 @@ export async function runOllamaPipeline(
       console.warn("Failed to persist run to storage:", saveErr);
     }
 
-    return { success: true, data: result };
+    const result: PipelineResult = {
+      planId: input.planId,
+      runId,
+      title: input.title,
+      request: input.request,
+      completedAt: nowIST(),
+      stages: executedStages,
+      quality,
+      records: revalidatedRecords,
+      sources,
+      interventions,
+      adaptiveOutcomes,
+      adaptiveSummary,
+    };
+
+    return { success: true, data: result, runId };
   } catch (err: unknown) {
     console.error("Local pipeline execution error:", err);
     return {

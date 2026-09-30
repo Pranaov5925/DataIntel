@@ -96,7 +96,11 @@ export async function callOllamaJson<T = unknown>(
     stream: false,
     options: {
       temperature: 0.1,
-      num_predict: 4096,
+      num_predict: 1024,
+      num_ctx: 2048,
+      ...(process.env["OLLAMA_NUM_GPU"] !== undefined
+        ? { num_gpu: Number(process.env["OLLAMA_NUM_GPU"]) }
+        : {}),
     },
   };
 

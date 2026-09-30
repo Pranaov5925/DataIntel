@@ -1,16 +1,23 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Database, ExternalLink, FileText, Globe, Quote } from "lucide-react";
+import { ArrowRight, Database, ExternalLink, FileText, Globe, Loader2, Quote, AlertTriangle } from "lucide-react";
 import { PageIntro, StatusBadge } from "@/components/dashboard-ui";
 import { RecordDetail } from "@/components/record-detail";
 import { datasetRows, sources as mockSources } from "@/lib/mock-data";
 import type { DatasetRecord as MockDatasetRecord } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { usePipelineResult } from "@/lib/pipeline-store";
-import { getActiveRunFn } from "@/lib/storage-fns";
+import { getActiveRunFn, getRunByIdFn } from "@/lib/storage-fns";
 import type { PersistedRun } from "@/lib/storage-schema";
 
+export type EvidenceSearch = {
+  runId?: string | undefined;
+};
+
 export const Route = createFileRoute("/evidence")({
+  validateSearch: (search: Record<string, unknown>): EvidenceSearch => ({
+    runId: typeof search["runId"] === "string" ? (search["runId"] as string) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Sources & Evidence — DataIntel" },
@@ -31,52 +38,95 @@ export const Route = createFileRoute("/evidence")({
 });
 
 function EvidencePage() {
+  const search = Route.useSearch();
+  const explicitRunId = search?.runId;
   const pipelineResult = usePipelineResult();
   const [persistedRun, setPersistedRun] = useState<PersistedRun | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     let mounted = true;
-    getActiveRunFn()
-      .then((run) => {
-        if (mounted && run) setPersistedRun(run);
-      })
-      .catch((err) => console.error("Failed to load active run in evidence:", err));
+    setLoading(true);
+    setNotFound(false);
+
+    if (explicitRunId) {
+      getRunByIdFn({ data: { runId: explicitRunId } })
+        .then((run) => {
+          if (mounted) {
+            if (run) {
+              setPersistedRun(run);
+            } else {
+              setNotFound(true);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load run by id:", err);
+          if (mounted) setNotFound(true);
+        })
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    } else {
+      getActiveRunFn()
+        .then((run) => {
+          if (mounted && run) setPersistedRun(run);
+        })
+        .catch((err) => console.error("Failed to load active run in evidence:", err))
+        .finally(() => {
+          if (mounted) setLoading(false);
+        });
+    }
+
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [explicitRunId]);
 
   const activeRecords = useMemo(() => {
-    if (pipelineResult) {
-      return pipelineResult.records ?? [];
+    if (explicitRunId) {
+      return persistedRun ? (persistedRun.records ?? []) : [];
     }
     if (persistedRun) {
       return persistedRun.records ?? [];
     }
+    if (pipelineResult) {
+      return pipelineResult.records ?? [];
+    }
     return datasetRows;
-  }, [pipelineResult, persistedRun]);
+  }, [explicitRunId, persistedRun, pipelineResult]);
 
   const activeSources = useMemo(() => {
-    if (pipelineResult) {
-      return pipelineResult.sources ?? [];
+    if (explicitRunId) {
+      return persistedRun ? (persistedRun.sources ?? []) : [];
     }
     if (persistedRun) {
       return persistedRun.sources ?? [];
     }
+    if (pipelineResult) {
+      return pipelineResult.sources ?? [];
+    }
     return mockSources;
-  }, [pipelineResult, persistedRun]);
+  }, [explicitRunId, persistedRun, pipelineResult]);
 
   const items = useMemo(
     () =>
       activeRecords.flatMap((r) =>
-        r.evidence.map((e) => ({ ...e, recordId: r.id, company: r.company })),
+        r.evidence.map((e, idx) => ({
+          ...e,
+          id: `${r.id}-${e.field}-${idx}`,
+          runId: persistedRun?.id || explicitRunId || "active-run",
+          recordId: r.id,
+          company: ("entityName" in r && r.entityName ? r.entityName : (r as any).company) || r.id,
+        })),
       ),
-    [activeRecords],
+    [activeRecords, persistedRun, explicitRunId],
   );
 
-  const planId = persistedRun?.requestId || pipelineResult?.planId || "DR-1048";
-  const runVersion = persistedRun ? `v${persistedRun.runNumber}` : "v2";
-  const pageEyebrow = `Provenance · ${planId} (${runVersion})`;
+  const planId = persistedRun?.requestId || (explicitRunId ? explicitRunId : pipelineResult?.planId || "Selected collection");
+  const runVersion = persistedRun ? `v${persistedRun.runNumber}` : "";
+  const pageEyebrow = persistedRun?.id ? `Run · ${persistedRun.id}` : `Provenance · ${planId}`;
 
   const [src, setSrc] = useState<string>("All");
   const list = useMemo(
@@ -84,9 +134,9 @@ function EvidencePage() {
     [src, items],
   );
   const [key, setKey] = useState("");
-  const firstKey = items[0] ? `${items[0].recordId}-${items[0].field}` : "";
+  const firstKey = items[0]?.id || "";
   const activeKey = key || firstKey;
-  const item = items.find((i) => `${i.recordId}-${i.field}` === activeKey) ?? items[0];
+  const item = items.find((i) => i.id === activeKey) ?? items[0];
   const record = item ? activeRecords.find((r) => r.id === item.recordId) : undefined;
 
   const coveragePercent =
@@ -96,6 +146,37 @@ function EvidencePage() {
 
   const openConflictsCount =
     persistedRun?.quality.conflicts ?? (pipelineResult ? pipelineResult.quality.conflicts : 0);
+
+  if (loading) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3">
+        <Loader2 className="size-6 animate-spin text-primary" />
+        <p className="text-xs text-muted-foreground">Loading evidence for run {explicitRunId || "active"}…</p>
+      </div>
+    );
+  }
+
+  if (notFound && explicitRunId) {
+    return (
+      <div className="p-8">
+        <div className="mx-auto max-w-lg border border-destructive/30 bg-card p-6 text-center">
+          <AlertTriangle className="mx-auto size-8 text-destructive" />
+          <h2 className="mt-3 text-lg font-semibold">Workflow Run Not Found</h2>
+          <p className="mt-2 text-xs text-muted-foreground">
+            The requested run <span className="font-mono text-foreground font-semibold">{explicitRunId}</span> does not exist in local storage.
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link
+              to="/history"
+              className="rounded-md bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+            >
+              Browse Workflow History
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -113,7 +194,7 @@ function EvidencePage() {
           ],
           [String(items.length), "Field-level citations", "In this dataset"],
           [String(openConflictsCount), "Open conflicts", "Awaiting review"],
-          [String(activeSources.length), "Sources used", "Careers pages & job boards"],
+          [String(activeSources.length), "Sources used", "Verified web sources"],
         ].map(([v, l, d]) => (
           <div key={l} className="border border-border bg-card p-5">
             <p className="text-2xl font-semibold">{v}</p>
@@ -164,14 +245,14 @@ function EvidencePage() {
               </thead>
               <tbody>
                 {list.map((i) => {
-                  const k = `${i.recordId}-${i.field}`;
+                  const k = i.id;
                   return (
                     <tr
                       key={k}
                       onClick={() => setKey(k)}
                       className={cn(
                         "cursor-pointer border-b border-border last:border-0 hover:bg-muted/30",
-                        key === k && "bg-primary-muted",
+                        activeKey === k && "bg-primary-muted",
                       )}
                     >
                       <td className="px-4 py-3 text-xs font-medium">{i.source}</td>

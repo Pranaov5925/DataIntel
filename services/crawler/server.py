@@ -9,7 +9,7 @@ import asyncio
 import json
 import os
 import sys
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import urllib.request
 from bs4 import BeautifulSoup
 
@@ -43,6 +43,8 @@ async def crawl_with_crawl4ai(url: str) -> dict:
         }
 
 
+import ssl
+
 def fallback_crawl(url: str) -> dict:
     req = urllib.request.Request(
         url,
@@ -51,7 +53,10 @@ def fallback_crawl(url: str) -> dict:
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         },
     )
-    with urllib.request.urlopen(req, timeout=10) as response:
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    with urllib.request.urlopen(req, timeout=4, context=ctx) as response:
         html = response.read().decode("utf-8", errors="ignore")
         soup = BeautifulSoup(html, "html.parser")
         title = soup.title.string.strip() if soup.title and soup.title.string else ""
@@ -62,7 +67,7 @@ def fallback_crawl(url: str) -> dict:
         return {
             "url": url,
             "title": title,
-            "markdown": text[:25000],
+            "markdown": text[:20000],
         }
 
 
@@ -99,9 +104,9 @@ class CrawlRequestHandler(BaseHTTPRequestHandler):
                 result = None
                 if CRAWL4AI_AVAILABLE:
                     try:
-                        result = asyncio.run(crawl_with_crawl4ai(url))
+                        result = asyncio.run(asyncio.wait_for(crawl_with_crawl4ai(url), timeout=6.0))
                     except Exception as crawl_err:
-                        print(f"[Crawler] Crawl4AI crawl error: {crawl_err}. Trying fallback parser.")
+                        print(f"[Crawler] Crawl4AI crawl error/timeout: {crawl_err}. Trying fallback parser.")
 
                 if not result:
                     result = fallback_crawl(url)
@@ -132,7 +137,7 @@ sys.stderr.reconfigure(encoding="utf-8")
 
 def run():
     server_address = ("127.0.0.1", PORT)
-    httpd = HTTPServer(server_address, CrawlRequestHandler)
+    httpd = ThreadingHTTPServer(server_address, CrawlRequestHandler)
     print(f"[Crawl4AI Service] Listening on http://127.0.0.1:{PORT}")
     try:
         httpd.serve_forever()

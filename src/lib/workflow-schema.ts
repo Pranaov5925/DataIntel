@@ -16,23 +16,54 @@ const stringCount = z.preprocess(
   z.string(),
 );
 
+export const structuredConstraintOperatorSchema = z.enum([
+  "equals",
+  "not_equals",
+  "contains",
+  "in",
+  "greater_than",
+  "greater_than_or_equal",
+  "less_than",
+  "less_than_or_equal",
+  "between",
+]);
+
+export type StructuredConstraintOperator = z.infer<typeof structuredConstraintOperatorSchema>;
+
+export const structuredConstraintSchema = z.object({
+  field: z.string().describe("Target attribute or field name, e.g. company_size, price, range, location"),
+  operator: structuredConstraintOperatorSchema.describe("Evaluation operator"),
+  value: z.coerce.string().describe("Target comparison value, or minimum bound if operator is 'between'"),
+  valueTo: z.coerce.string().optional().describe("Upper bound if operator is 'between'"),
+  unit: z.string().optional().describe("Unit of measurement, e.g. INR, employees, km, LPA"),
+  hard: z.boolean().default(true).describe("True if failure disqualifies record; false if optional"),
+});
+
+export type StructuredConstraint = z.infer<typeof structuredConstraintSchema>;
+
 export const requirementUnderstandingSchema = z.object({
   objective: z.string().describe("Clear concise summary of what data needs to be collected"),
   target: z
     .string()
     .describe(
-      "The primary entity or target being searched, e.g. Job openings, Companies, Products",
+      "The primary entity or target being searched, e.g. Job openings, Companies, Land listings, EV Two-Wheelers",
     ),
   geography: z
     .string()
-    .describe("Geographic boundary or location scope, e.g. India, Global, Bengaluru"),
+    .describe("Geographic boundary or location scope, e.g. India, Global, Bengaluru, Chennai"),
   industry: z
     .string()
-    .describe("Target vertical or industry domain, e.g. SaaS, FinTech, E-commerce"),
+    .describe("Target vertical or industry domain, e.g. SaaS, Real Estate, Automotive"),
   constraints: stringOrArray.describe(
-    "Specific filters, constraints, experience levels, or qualifiers",
+    "Specific natural-language filters, constraints, or qualifiers",
   ),
-  requiredFields: stringOrArray.describe("List of data attributes or columns required"),
+  structuredConstraints: z.array(structuredConstraintSchema).default([]).describe(
+    "Machine-evaluable qualification rules extracted from constraints",
+  ),
+  requiredFields: stringOrArray.describe("List of required data attributes or columns to extract"),
+  optionalFields: stringOrArray.default([]).describe(
+    "List of optional fields (e.g. 'salary if available') that do not disqualify records if absent",
+  ),
   freshness: z.string().describe("Timeframe or recency requirement for the data"),
   searchIntent: z.string().describe("Underlying search intent or operational goal"),
 });

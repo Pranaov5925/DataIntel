@@ -10,6 +10,14 @@ export const getActiveRunFn = createServerFn({ method: "GET" }).handler(
   },
 );
 
+// ─── Get Run By ID ────────────────────────────────────────────────────────────
+export const getRunByIdFn = createServerFn({ method: "GET" })
+  .validator((input: unknown) => z.object({ runId: z.string() }).parse(input))
+  .handler(async ({ data }): Promise<PersistedRun | null> => {
+    const { getRunById } = await import("../server/storage");
+    return getRunById(data.runId);
+  });
+
 // ─── Set Active Run ───────────────────────────────────────────────────────────
 export const setActiveRunFn = createServerFn({ method: "POST" })
   .validator((input: unknown) => z.object({ runId: z.string() }).parse(input))
@@ -43,6 +51,7 @@ export const getHistoryDataFn = createServerFn({ method: "GET" }).handler(
       const latestRun = store.runs.find((r) => r.id === req.activeRunId) ?? store.runs.find((r) => r.requestId === req.id);
       return {
         id: req.id,
+        runId: latestRun?.id,
         name: req.name,
         prompt: req.prompt,
         status: req.status === "completed" ? "Complete" : req.status === "running" ? "Running" : "Needs review",
@@ -97,6 +106,7 @@ export const getOverviewDataFn = createServerFn({ method: "GET" }).handler(
       const run = store.runs.find((r) => r.id === req.activeRunId) ?? store.runs.find((r) => r.requestId === req.id);
       return {
         id: req.id,
+        runId: run?.id,
         name: req.name,
         status: (req.status === "running" ? "Running" : "Complete") as "Running" | "Complete",
         progress: req.status === "running" ? 60 : 100,

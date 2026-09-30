@@ -1,7 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import {
-  Bell,
   ChevronDown,
   CircleHelp,
   Clock3,
@@ -9,9 +8,7 @@ import {
   FileSearch,
   Gauge,
   Menu,
-  PanelLeftClose,
   Plus,
-  Search,
   Settings,
   Sparkles,
   Waypoints,
@@ -19,6 +16,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { HelpDialog } from "@/components/help-dialog";
+import { SettingsDialog } from "@/components/settings-dialog";
+import { NotificationsPopover } from "@/components/notifications-popover";
+import { TopSearch } from "@/components/top-search";
 
 type NavigationItem = {
   to: "/" | "/requests" | "/workflow" | "/datasets" | "/evidence" | "/history";
@@ -30,7 +31,7 @@ type NavigationItem = {
 const navigation: NavigationItem[] = [
   { to: "/", label: "Overview", icon: Gauge },
   { to: "/requests", label: "New request", icon: Plus },
-  { to: "/workflow", label: "Active workflow", icon: Waypoints, badge: "1" },
+  { to: "/workflow", label: "Active workflow", icon: Waypoints },
   { to: "/datasets", label: "Datasets", icon: Database },
   { to: "/evidence", label: "Sources & evidence", icon: FileSearch },
   { to: "/history", label: "Workflow history", icon: Clock3 },
@@ -39,16 +40,26 @@ const navigation: NavigationItem[] = [
 const pageDetails: Record<string, { title: string; eyebrow: string }> = {
   "/": { title: "Overview", eyebrow: "Workspace" },
   "/requests": { title: "Create data request", eyebrow: "New collection" },
-  "/workflow": { title: "Active workflow", eyebrow: "DR-1048" },
-  "/datasets": { title: "Dataset explorer", eyebrow: "DR-1048" },
-  "/evidence": { title: "Sources & evidence", eyebrow: "DR-1048" },
-  "/history": { title: "Workflow history", eyebrow: "DR-1048" },
+  "/workflow": { title: "Active workflow", eyebrow: "Data pipeline" },
+  "/datasets": { title: "Dataset explorer", eyebrow: "Dataset" },
+  "/evidence": { title: "Sources & evidence", eyebrow: "Audit trail" },
+  "/history": { title: "Workflow history", eyebrow: "Provenance" },
 };
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const details = pageDetails[pathname] ?? { title: "Overview", eyebrow: "Workspace" };
+  const searchObj = useRouterState({ select: (state) => state.location.search }) as Record<string, unknown>;
+  const activeRunId = typeof searchObj?.["runId"] === "string" ? (searchObj["runId"] as string) : undefined;
+
+  const baseDetails = pageDetails[pathname] ?? { title: "Overview", eyebrow: "Workspace" };
+  const details = {
+    title: baseDetails.title,
+    eyebrow: activeRunId || baseDetails.eyebrow,
+  };
 
   const sidebar = (
     <>
@@ -97,15 +108,24 @@ export function AppShell({ children }: { children: ReactNode }) {
         ))}
       </nav>
       <div className="border-t border-sidebar-border p-3">
-        <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground">
+        <button
+          onClick={() => setHelpOpen(true)}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-sidebar-muted transition hover:bg-sidebar-accent hover:text-sidebar-foreground cursor-pointer"
+        >
           <CircleHelp className="size-4" />
-          Help & documentation
+          Help &amp; documentation
         </button>
-        <button className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-foreground">
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-sidebar-muted transition hover:bg-sidebar-accent hover:text-sidebar-foreground cursor-pointer"
+        >
           <Settings className="size-4" />
           Workspace settings
         </button>
-        <div className="mt-3 flex items-center gap-3 border-t border-sidebar-border px-3 pt-4">
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="mt-3 flex w-full items-center gap-3 border-t border-sidebar-border px-3 pt-4 text-left transition hover:opacity-80 cursor-pointer"
+        >
           <span className="flex size-8 items-center justify-center rounded-full bg-avatar text-xs font-semibold text-avatar-foreground">
             PM
           </span>
@@ -114,7 +134,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="block text-[10px] text-sidebar-muted">Admin workspace</span>
           </span>
           <ChevronDown className="size-4 text-sidebar-muted" />
-        </div>
+        </button>
       </div>
     </>
   );
@@ -151,30 +171,21 @@ export function AppShell({ children }: { children: ReactNode }) {
             </p>
             <h1 className="truncate text-sm font-semibold text-foreground">{details.title}</h1>
           </div>
-          <div className="relative mx-auto hidden w-full max-w-md lg:block">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              aria-label="Search platform"
-              placeholder="Search tasks, records, sources…"
-              className="h-9 w-full rounded-md border border-border bg-muted/50 pl-9 pr-12 text-sm outline-none transition focus:border-ring focus:ring-2 focus:ring-ring/20"
-            />
-            <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              ⌘ K
-            </kbd>
-          </div>
-          <div className="ml-auto flex items-center gap-1">
+
+          {/* Connected Top Search Bar */}
+          <TopSearch />
+
+          <div className="ml-auto flex items-center gap-1.5">
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Collapse sidebar"
+              aria-label="Workspace settings"
+              onClick={() => setSettingsOpen(true)}
               className="hidden md:inline-flex"
             >
-              <PanelLeftClose className="size-4" />
+              <Settings className="size-4" />
             </Button>
-            <Button variant="ghost" size="icon" aria-label="Notifications" className="relative">
-              <Bell className="size-4" />
-              <span className="absolute right-2 top-2 size-1.5 rounded-full bg-destructive" />
-            </Button>
+            <NotificationsPopover />
             <Link
               to="/requests"
               className="ml-2 inline-flex h-9 items-center gap-2 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
@@ -193,6 +204,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+
+      {/* Lightweight in-app modals */}
+      <HelpDialog open={helpOpen} onOpenChange={setHelpOpen} />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   );
 }

@@ -77,21 +77,21 @@ function Index() {
       icon: ShieldAlert,
       label: "Records needing verification",
       value: String(data?.attention.needingVerification ?? 5),
-      detail: "Partially verified salary values",
+      detail: "Unverified values awaiting evidence",
       to: "/datasets" as const,
     },
     {
       icon: AlertTriangle,
       label: "Source conflicts",
       value: String(data?.attention.conflicts ?? 2),
-      detail: "Company size disagreements",
+      detail: "Conflicting values across sources",
       to: "/datasets" as const,
     },
     {
       icon: FileQuestion,
       label: "Incomplete fields",
       value: String(data?.attention.incomplete ?? 3),
-      detail: "Salary not disclosed",
+      detail: "Missing optional attributes",
       to: "/datasets" as const,
     },
     {
@@ -110,7 +110,7 @@ function Index() {
         description={
           data
             ? `${data.activeWorkflowsCount} active workflow${data.activeWorkflowsCount === 1 ? "" : "s"} across ${data.totalRecordsCollected} collected records. ${validatedCount} validated records ready to inspect.`
-            : `One workflow is active with persisted collection data. ${validatedCount} validated Java backend job records are ready to inspect.`
+            : `Collection workflow active with persisted snapshot. ${validatedCount} validated records ready to inspect.`
         }
         actions={
           <Link to="/requests">
@@ -157,13 +157,16 @@ function Index() {
             />
             {data?.tasks ? <TaskTable compact tasks={data.tasks} /> : <TaskTable compact />}
           </section>
-          <QualityCallout />
+          <QualityCallout
+            summary={activeRun?.adaptiveSummary}
+            outcomes={activeRun?.adaptiveOutcomes}
+          />
         </div>
         <aside className="space-y-6">
           <section className="border border-border bg-card">
             <SectionHeader
               title="Active workflow"
-              subtitle={`${activeRun?.requestName || "Indian SaaS companies hiring Java backend developers"} · ${runVersion}`}
+              subtitle={`${activeRun?.requestName || "Active collection workflow"} · ${runVersion}`}
             />
             <div className="p-5">
               <div className="flex items-end justify-between">
@@ -196,6 +199,7 @@ function Index() {
               </div>
               <Link
                 to="/workflow"
+                search={activeRun ? { runId: activeRun.id } : {}}
                 className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs font-semibold text-primary"
               >
                 Monitor workflow <ArrowRight className="size-4" />
@@ -209,6 +213,7 @@ function Index() {
                 <Link
                   key={label}
                   to={to}
+                  search={activeRun ? { runId: activeRun.id } : {}}
                   className="flex items-center gap-3 px-5 py-3.5 hover:bg-muted/30"
                 >
                   <Icon className="size-4 text-muted-foreground" />

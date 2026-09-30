@@ -12,7 +12,7 @@ export interface CrawlResult {
 
 export function getCrawl4aiUrl(): string {
   dotenv.config({ override: true });
-  return (process.env["CRAWL4AI_URL"] || "http://localhost:11235").replace(/\/+$/, "");
+  return (process.env["CRAWL4AI_URL"] || "http://127.0.0.1:11235").replace(/\/+$/, "");
 }
 
 export async function checkCrawl4aiHealth(baseUrl: string = getCrawl4aiUrl()): Promise<{

@@ -17,7 +17,7 @@ import {
   tasks as mockTasks,
 } from "../lib/mock-data";
 import type { RequirementUnderstanding, WorkflowStep } from "../lib/workflow-schema";
-import type { ExecutedStage } from "../lib/pipeline-schema";
+import type { ExecutedStage, DatasetRecord, QualificationStatus } from "../lib/pipeline-schema";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const STORE_FILE = path.join(DATA_DIR, "store.json");
@@ -33,6 +33,37 @@ function timeAgo(minutesAgo: number): string {
   return d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", hour12: false });
 }
 
+function normalizeMockRecord(r: any): DatasetRecord {
+  const entityName = r.entityName || r.company || r.title || r.id;
+  const attributes: Record<string, string | null> = r.attributes || {
+    Company: r.company || null,
+    Role: r.role || null,
+    Location: r.location || null,
+    Experience: r.experience || null,
+    Salary: r.salary || null,
+    "Company Size": r.size || null,
+    Source: r.source || null,
+  };
+  const qualStatus: QualificationStatus =
+    r.qualificationStatus ||
+    (r.status === "Verified"
+      ? "Qualified"
+      : r.status === "Conflict"
+        ? "Conflict"
+        : "Needs verification");
+
+  return {
+    ...r,
+    entityName,
+    attributes,
+    qualificationStatus: qualStatus,
+    qualificationReason:
+      r.qualificationReason || (qualStatus === "Qualified" ? "All constraints satisfied" : undefined),
+    verificationStatus: r.verificationStatus || (r.status === "Verified" ? "Cross-verified" : "Needs review"),
+    conflicts: r.conflicts || (r.conflict ? [r.conflict] : []),
+  };
+}
+
 // ─── Default Initial Seed ─────────────────────────────────────────────────────
 function buildInitialSeed(): AppStore {
   const understandingObj: RequirementUnderstanding = {
@@ -41,6 +72,21 @@ function buildInitialSeed(): AppStore {
     geography: "India",
     industry: "SaaS",
     constraints: ["Java backend roles", "Indian SaaS companies"],
+    structuredConstraints: [
+      {
+        field: "Role",
+        operator: "contains",
+        value: "Java",
+        hard: true,
+      },
+      {
+        field: "Industry",
+        operator: "contains",
+        value: "SaaS",
+        hard: true,
+      },
+    ],
+    optionalFields: ["Salary"],
     requiredFields: [
       "Company",
       "Role",
@@ -69,15 +115,15 @@ function buildInitialSeed(): AppStore {
   }));
 
   // Initial Run 1 (v1 baseline before adaptive retry)
-  const run1Records = datasetRows.map((r, idx) => {
+  const run1Records: DatasetRecord[] = datasetRows.map((r, idx) => {
     if (idx >= 26) {
-      return {
+      return normalizeMockRecord({
         ...r,
         status: "Incomplete" as const,
         salary: "Not disclosed",
-      };
+      });
     }
-    return r;
+    return normalizeMockRecord(r);
   });
 
   const run1: PersistedRun = {
@@ -152,7 +198,7 @@ function buildInitialSeed(): AppStore {
     blueprintStages,
     executedStages,
     quality: { ...mockQ },
-    records: datasetRows,
+    records: datasetRows.map(normalizeMockRecord),
     sources: mockSources,
     interventions: mockInterventions.map((i) => ({
       ...i,
@@ -220,7 +266,9 @@ function buildInitialSeed(): AppStore {
         incomplete: Math.max(1, Math.round(t.records * 0.08)),
         conflicts: Math.max(1, Math.round(t.records * 0.04)),
       },
-      records: datasetRows.slice(0, Math.min(datasetRows.length, t.records)),
+      records: datasetRows
+        .slice(0, Math.min(datasetRows.length, t.records))
+        .map(normalizeMockRecord),
       sources: mockSources,
       interventions: mockInterventions.slice(0, 2).map((i) => ({
         ...i,
@@ -392,12 +440,14 @@ export async function rerunWorkflow(
   // Execute the REAL local pipeline again with SearXNG + Crawl4AI + Ollama
   const { runOllamaPipeline } = await import("./pipeline-runner");
 
-  const understanding = prevRun?.understanding ?? {
+  const understanding: RequirementUnderstanding = prevRun?.understanding ?? {
     objective: req.name,
-    target: "Job openings",
+    target: "Entities",
     geography: "India",
-    industry: "SaaS",
+    industry: "General",
     constraints: [],
+    structuredConstraints: [],
+    optionalFields: [],
     requiredFields: [
       "Company",
       "Role",

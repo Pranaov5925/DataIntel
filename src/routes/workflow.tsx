@@ -25,10 +25,17 @@ import { cn } from "@/lib/utils";
 import { useActiveWorkflowPlan } from "@/lib/workflow-store";
 import { runPipelineFn } from "@/lib/run-pipeline";
 import { setPipelineResult } from "@/lib/pipeline-store";
-import { getActiveRunFn, rerunWorkflowFn } from "@/lib/storage-fns";
+import { getActiveRunFn, getRunByIdFn, rerunWorkflowFn } from "@/lib/storage-fns";
 import type { PersistedRun } from "@/lib/storage-schema";
 
+export type WorkflowSearch = {
+  runId?: string | undefined;
+};
+
 export const Route = createFileRoute("/workflow")({
+  validateSearch: (search: Record<string, unknown>): WorkflowSearch => ({
+    runId: typeof search["runId"] === "string" ? (search["runId"] as string) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Active Workflow — DataIntel" },
@@ -51,6 +58,8 @@ export const Route = createFileRoute("/workflow")({
 });
 
 export function WorkflowPage() {
+  const search = Route.useSearch();
+  const explicitRunId = search?.runId;
   const plan = useActiveWorkflowPlan();
   const navigate = useNavigate();
   const [running, setRunning] = useState(false);
@@ -59,50 +68,69 @@ export function WorkflowPage() {
 
   useEffect(() => {
     let mounted = true;
-    getActiveRunFn()
-      .then((run) => {
-        if (mounted && run) setPersistedRun(run);
-      })
-      .catch((err) => console.error("Failed to load active run:", err));
+    if (explicitRunId) {
+      getRunByIdFn({ data: { runId: explicitRunId } })
+        .then((run) => {
+          if (mounted && run) setPersistedRun(run);
+        })
+        .catch((err) => console.error("Failed to load run by id:", err));
+    } else {
+      getActiveRunFn()
+        .then((run) => {
+          if (mounted && run) setPersistedRun(run);
+        })
+        .catch((err) => console.error("Failed to load active run:", err));
+    }
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [explicitRunId]);
 
-  const title = plan ? plan.title : persistedRun ? persistedRun.requestName : "Indian SaaS companies hiring Java backend developers";
+  const activePlan = explicitRunId ? null : plan;
+  const title = activePlan
+    ? activePlan.title
+    : persistedRun
+      ? persistedRun.requestName
+      : "Data Collection Workflow";
   const eyebrow = running
-    ? `Executing · ${plan?.id ?? persistedRun?.requestId ?? "DR-1048"}`
-    : plan
-      ? `Ready to execute · ${plan.id}`
-      : `Active run · ${persistedRun?.requestId ?? "DR-1048"} (v${persistedRun?.runNumber ?? 2})`;
-  const description = plan ? plan.request : persistedRun ? persistedRun.originalPrompt : DEMO_REQUEST;
+    ? `Executing · ${activePlan?.id ?? persistedRun?.id ?? "Pipeline"}`
+    : activePlan
+      ? `Ready to execute · ${activePlan.id}`
+      : persistedRun
+        ? `Run · ${persistedRun.id}`
+        : "Data collection workflow";
+  const description = activePlan
+    ? activePlan.request
+    : persistedRun
+      ? persistedRun.originalPrompt
+      : DEMO_REQUEST;
 
   async function handleRunPipeline() {
     if (running) return;
 
-    if (plan) {
+    if (activePlan) {
       setRunning(true);
       setPipelineError(null);
 
       try {
         const res = await runPipelineFn({
           data: {
-            planId: plan.id,
-            title: plan.title,
-            request: plan.request,
-            understanding: plan.understanding,
-            requiredFields: Array.isArray(plan.understanding.requiredFields)
-              ? plan.understanding.requiredFields
-              : [String(plan.understanding.requiredFields)],
-            geography: plan.understanding.geography,
-            industry: plan.understanding.industry,
-            target: plan.understanding.target,
-            constraints: Array.isArray(plan.understanding.constraints)
-              ? plan.understanding.constraints
-              : [String(plan.understanding.constraints)],
-            freshness: plan.understanding.freshness,
-            searchIntent: plan.understanding.searchIntent,
-            stages: plan.stages,
+            planId: activePlan.id,
+            title: activePlan.title,
+            request: activePlan.request,
+            understanding: activePlan.understanding,
+            requiredFields: Array.isArray(activePlan.understanding.requiredFields)
+              ? activePlan.understanding.requiredFields
+              : [String(activePlan.understanding.requiredFields)],
+            geography: activePlan.understanding.geography,
+            industry: activePlan.understanding.industry,
+            target: activePlan.understanding.target,
+            constraints: Array.isArray(activePlan.understanding.constraints)
+              ? activePlan.understanding.constraints
+              : [String(activePlan.understanding.constraints)],
+            freshness: activePlan.understanding.freshness,
+            searchIntent: activePlan.understanding.searchIntent,
+            stages: activePlan.stages,
           },
         });
 
@@ -113,7 +141,7 @@ export function WorkflowPage() {
         }
 
         setPipelineResult(res.data);
-        await navigate({ to: "/datasets" });
+        await navigate({ to: "/datasets", search: { runId: res.runId } });
       } catch (err: unknown) {
         setPipelineError(
           err instanceof Error ? err.message : "An unexpected error occurred during pipeline execution.",
@@ -131,7 +159,7 @@ export function WorkflowPage() {
         });
         if (res.success && res.newRun) {
           setPersistedRun(res.newRun);
-          await navigate({ to: "/datasets" });
+          await navigate({ to: "/datasets", search: { runId: res.newRun.id } });
         } else {
           setPipelineError(res.error ?? "Failed to rerun workflow.");
         }
@@ -143,18 +171,81 @@ export function WorkflowPage() {
     }
   }
 
+function formatConstraintDisplay(c: unknown): string {
+  if (!c) return "";
+  if (typeof c === "string") return c;
+  if (typeof c === "object" && c !== null) {
+    const sc = c as {
+      field?: string;
+      operator?: string;
+      value?: string;
+      valueTo?: string;
+      unit?: string;
+    };
+    const fieldName = (sc.field || "Field")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (l) => l.toUpperCase());
+    const op = sc.operator;
+    const unit = sc.unit ? ` ${sc.unit}` : "";
+
+    let displayVal = sc.value || "";
+    if (sc.unit === "INR" || fieldName.toLowerCase().includes("price")) {
+      const num = parseFloat(sc.value || "0");
+      if (num >= 10000000) {
+        displayVal = `₹${(num / 10000000).toFixed(1).replace(/\.0$/, "")} Cr`;
+      } else if (num >= 100000) {
+        displayVal = `₹${(num / 100000).toFixed(1).replace(/\.0$/, "")} lakh`;
+      }
+    }
+
+    if (op === "between") {
+      return `${fieldName}: ${sc.value}–${sc.valueTo || "—"}${unit}`;
+    }
+    if (op === "less_than_or_equal") {
+      return `${fieldName}: <= ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
+    }
+    if (op === "less_than") {
+      return `${fieldName}: < ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
+    }
+    if (op === "greater_than_or_equal") {
+      return `${fieldName}: >= ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
+    }
+    if (op === "greater_than") {
+      return `${fieldName}: > ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
+    }
+    if (op === "contains") {
+      return `${fieldName}: contains "${sc.value}"`;
+    }
+    if (op === "equals") {
+      return `${fieldName}: "${sc.value}"`;
+    }
+    if (sc.value) {
+      return `${fieldName}: ${sc.value}${unit}`;
+    }
+  }
+  return String(c);
+}
+
+function renderConstraintsText(understanding: any): string {
+  if (Array.isArray(understanding?.structuredConstraints) && understanding.structuredConstraints.length > 0) {
+    return understanding.structuredConstraints.map(formatConstraintDisplay).join("; ");
+  }
+  if (Array.isArray(understanding?.constraints) && understanding.constraints.length > 0) {
+    return understanding.constraints.map(formatConstraintDisplay).join("; ");
+  }
+  if (understanding?.constraints) {
+    return formatConstraintDisplay(understanding.constraints);
+  }
+  return "None";
+}
+
   const understandingItems: [string, string][] = plan
     ? [
         ["Objective", plan.understanding.objective],
         ["Target", plan.understanding.target],
         ["Geography", plan.understanding.geography],
         ["Industry", plan.understanding.industry],
-        [
-          "Constraints",
-          Array.isArray(plan.understanding.constraints)
-            ? plan.understanding.constraints.join("; ")
-            : String(plan.understanding.constraints ?? "—"),
-        ],
+        ["Constraints", renderConstraintsText(plan.understanding)],
         [
           "Required fields",
           Array.isArray(plan.understanding.requiredFields)
@@ -170,12 +261,7 @@ export function WorkflowPage() {
           ["Target", persistedRun.understanding.target],
           ["Geography", persistedRun.understanding.geography],
           ["Industry", persistedRun.understanding.industry],
-          [
-            "Constraints",
-            Array.isArray(persistedRun.understanding.constraints)
-              ? persistedRun.understanding.constraints.join("; ")
-              : String(persistedRun.understanding.constraints ?? "—"),
-          ],
+          ["Constraints", renderConstraintsText(persistedRun.understanding)],
           [
             "Required fields",
             Array.isArray(persistedRun.understanding.requiredFields)
@@ -199,19 +285,19 @@ export function WorkflowPage() {
       : defaultStages;
 
   const blueprintSubtitle = plan
-    ? `${plan.stages.length}-step workflow generated for this request`
+    ? `${plan.stages.length}-step workflow blueprint generated for this request`
     : persistedRun
       ? `${stages.length}-step workflow executed with verified provenance`
       : "8-step workflow generated by the AI for this request";
 
   const interventions = persistedRun ? persistedRun.interventions : defaultInterventions;
-  const validatedCount = persistedRun ? persistedRun.quality.validated : 31;
-  const uniqueCount = persistedRun ? persistedRun.quality.unique : 36;
+  const validatedCount = persistedRun ? persistedRun.quality.validated : (plan ? 0 : 31);
+  const uniqueCount = persistedRun ? persistedRun.quality.unique : (plan ? 0 : 36);
   const qualityScore = persistedRun
     ? Math.round((persistedRun.quality.validated / Math.max(1, persistedRun.quality.unique)) * 100)
-    : 88;
+    : (plan ? 0 : 88);
 
-  // Derive salary coverage before/after from real adaptiveSummary or stages
+  // Derive coverage before/after from real adaptiveSummary or stages
   const coverageOutcome = persistedRun?.adaptiveSummary?.match(/from (\d+)% to (\d+)%/);
   const singleCoverage = persistedRun?.adaptiveSummary?.match(/coverage is (\d+)%/);
   const coverageBefore = coverageOutcome ? Number(coverageOutcome[1]) : singleCoverage ? Number(singleCoverage[1]) : (persistedRun ? 50 : 0);
@@ -311,7 +397,10 @@ export function WorkflowPage() {
 
             <div className="px-5 py-2">
               {stages.map((stage, index) => {
-                const isExecuting = running && stage.status === "pending";
+                const isPlanOnly = !!plan && !persistedRun && !running;
+                const isComplete = !isPlanOnly && (stage.status === "complete" || (persistedRun && !running));
+                const isActive = running && index === 1;
+
                 return (
                   <div
                     key={`${stage.name}-${index}`}
@@ -320,17 +409,17 @@ export function WorkflowPage() {
                     <span
                       className={cn(
                         "z-10 flex size-8 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
-                        stage.status === "complete" &&
+                        isComplete &&
                           "border-success bg-success text-success-foreground",
-                        (stage.status === "active" || (running && index === stages.findIndex((s) => s.status === "pending"))) &&
+                        isActive &&
                           "border-primary bg-primary-muted text-primary",
-                        stage.status === "pending" && !isExecuting &&
+                        (isPlanOnly || (!isComplete && !isActive)) &&
                           "border-border bg-background text-muted-foreground",
                       )}
                     >
-                      {stage.status === "complete" ? (
+                      {isComplete ? (
                         <Check className="size-4" />
-                      ) : stage.status === "active" || (running && index === stages.findIndex((s) => s.status === "pending")) ? (
+                      ) : isActive ? (
                         <span className="size-2 animate-pulse rounded-full bg-primary" />
                       ) : (
                         <Circle className="size-3" />
@@ -345,7 +434,7 @@ export function WorkflowPage() {
                         <p className="mt-0.5 text-xs text-muted-foreground">{stage.detail}</p>
                       </div>
                       <span className="text-xs font-semibold tabular-nums text-muted-foreground">
-                        {stage.count}
+                        {isPlanOnly ? "Planned" : stage.count}
                       </span>
                     </div>
                   </div>
@@ -354,7 +443,15 @@ export function WorkflowPage() {
             </div>
           </section>
 
-          <QualityCallout />
+          <QualityCallout
+            summary={persistedRun?.adaptiveSummary}
+            outcomes={persistedRun?.adaptiveOutcomes}
+            pill={
+              coverageAfter > coverageBefore
+                ? `Evidence coverage ${coverageBefore}% → ${coverageAfter}%`
+                : undefined
+            }
+          />
         </div>
 
         <aside className="space-y-6">
@@ -392,7 +489,9 @@ export function WorkflowPage() {
               })}
               <div className="mt-2 border-t border-border pt-4">
                 <p className="text-[10px] uppercase text-muted-foreground">
-                  Salary evidence coverage
+                  {persistedRun?.understanding?.optionalFields?.[0]
+                    ? `${persistedRun.understanding.optionalFields[0]} evidence coverage`
+                    : "Attribute evidence coverage"}
                 </p>
                 <div className="mt-2 flex items-center gap-3">
                   <span className="text-sm font-semibold text-warning">{coverageBefore}%</span>
@@ -416,6 +515,7 @@ export function WorkflowPage() {
             </div>
             <Link
               to="/datasets"
+              search={persistedRun ? { runId: persistedRun.id } : {}}
               className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs font-semibold text-primary hover:underline"
             >
               Open live dataset <ArrowRight className="size-4" />

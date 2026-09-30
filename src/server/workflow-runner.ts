@@ -8,6 +8,7 @@ import {
   type CollectionPlan,
 } from "../lib/workflow-schema";
 import { callOllamaJson, getOllamaConfig } from "./ollama-client";
+import { extractDeterministicConstraints } from "./qualification-engine";
 
 export type RunWorkflowInput = {
   request: string;
@@ -27,11 +28,23 @@ export async function runOllamaWorkflow(
 Your mission is to analyze any natural-language data collection request and generate:
 1. "understanding": A deep structured requirement analysis with:
    - objective: concise summary of the data collection goal
-   - target: primary entity/record type being gathered (e.g. "Job openings", "SaaS Companies", "EV Two-Wheelers")
-   - geography: target geographic scope (e.g. "India", "Bengaluru", "Global")
-   - industry: domain vertical (e.g. "SaaS", "FinTech", "CleanTech")
-   - constraints: array of specific constraints, qualifiers, or filters mentioned or strongly implied
-   - requiredFields: array of data columns or attributes to extract
+   - target: primary entity/record type being gathered (e.g. "Job openings", "SaaS Companies", "EV Two-Wheelers", "Land parcels")
+   - geography: target geographic scope (e.g. "India", "Bengaluru", "Chennai", "Global")
+   - industry: domain vertical (e.g. "SaaS", "Real Estate", "Automotive", "FinTech")
+   - constraints: array of specific constraints, qualifiers, or filters mentioned in user prompt
+   - structuredConstraints: array of machine-evaluable qualification rules:
+     [
+       {
+         "field": "<attribute e.g. company_size, price, range, location>",
+         "operator": "<equals | not_equals | contains | in | greater_than | greater_than_or_equal | less_than | less_than_or_equal | between>",
+         "value": "<comparison value or lower bound>",
+         "valueTo": "<upper bound if between>",
+         "unit": "<unit e.g. INR, employees, km, LPA>",
+         "hard": true
+       }
+     ]
+   - requiredFields: array of data columns or attributes to extract (e.g. ["Brand", "Model", "Price", "Range", "Battery capacity", "Source"])
+   - optionalFields: array of fields requested with 'if available', 'when possible', etc. (e.g. ["Salary"]) that do NOT disqualify records if missing
    - freshness: timeframe or recency requirement (e.g. "Listings active in the last 30 days")
    - searchIntent: underlying operational or business goal
 2. "stages": A custom sequential multi-stage workflow collection blueprint tailored specifically to this request.
@@ -48,8 +61,8 @@ Your mission is to analyze any natural-language data collection request and gene
    Each stage MUST have:
    - name: concise, actionable stage name
    - detail: descriptive text explaining specifically how this stage operates for this exact request
-   - status: assign the first stage as "complete", the next stage as "active", and remaining stages as "pending"
-   - count: realistic metric count or indicator string (e.g., "9 sources", "47 candidates", "7 fields", "88%", "—")
+   - status: "pending"
+   - count: realistic metric count or indicator string (e.g., "9 sources", "47 candidates", "7 fields", "—")
 3. "title": A concise, punchy title summarizing this task (4-8 words).
 
 Return strictly a valid JSON object matching the requested schema. No markdown formatting, backticks, or extra commentary.`;
@@ -70,13 +83,44 @@ Return strictly a valid JSON object matching the requested schema. No markdown f
       };
     }
 
+    // Merge deterministic constraint extraction to guarantee machine-evaluable rules
+    const deterministic = extractDeterministicConstraints(
+      input.request,
+      validated.data.understanding.constraints,
+    );
+
+    const mergedConstraints = [
+      ...(validated.data.understanding.structuredConstraints || []),
+    ];
+    for (const dc of deterministic.structuredConstraints) {
+      if (!mergedConstraints.some((c) => c.field === dc.field && c.operator === dc.operator)) {
+        mergedConstraints.push(dc);
+      }
+    }
+
+    const mergedOptional = Array.from(
+      new Set([
+        ...(validated.data.understanding.optionalFields || []),
+        ...deterministic.optionalFields,
+      ]),
+    );
+
+    const finalUnderstanding = {
+      ...validated.data.understanding,
+      structuredConstraints: mergedConstraints,
+      optionalFields: mergedOptional,
+    };
+
     const planId = `DR-${Math.floor(1000 + Math.random() * 9000)}`;
     const plan: CollectionPlan = {
       id: planId,
       title: validated.data.title,
       request: input.request,
-      understanding: validated.data.understanding,
-      stages: validated.data.stages,
+      understanding: finalUnderstanding,
+      stages: validated.data.stages.map((s) => ({
+        ...s,
+        status: "pending" as const,
+      })),
       createdAt: new Date().toISOString(),
     };
 

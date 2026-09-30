@@ -27,21 +27,36 @@ export const conflictSchema = z.object({
   values: z.array(conflictValueSchema).min(2),
 });
 
+export const qualificationStatusSchema = z.enum([
+  "Qualified",
+  "Needs verification",
+  "Excluded",
+  "Conflict",
+]);
+
+export type QualificationStatus = z.infer<typeof qualificationStatusSchema>;
+
 // ─── Dataset Record ───────────────────────────────────────────────────────────
 export const datasetRecordSchema = z.object({
   id: z.string(),
-  company: z.string(),
-  role: z.string(),
-  location: z.string(),
-  experience: z.string(),
-  salary: z.string(),
-  size: z.string(),
+  entityName: z.string().default(""), // Domain-neutral primary entity identity
+  attributes: z.record(z.string(), z.string().nullable()).default({}), // Dynamic source-of-truth attributes
   source: z.string(),
   confidence: z.number().int().min(0).max(100),
-  status: z.enum(["Verified", "Review", "Conflict", "Incomplete"]),
-  evidence: z.array(evidenceSchema),
+  verificationStatus: verificationSchema.default("Needs verification"),
+  qualificationStatus: qualificationStatusSchema.default("Needs verification"),
+  qualificationReason: z.string().optional(),
+  evidence: z.array(evidenceSchema).default([]),
   conflict: conflictSchema.optional(),
-  attributes: z.record(z.string(), z.string().nullable()).optional(),
+  conflicts: z.array(conflictSchema).default([]),
+  // Legacy fields retained for backwards-compatibility with mock data and fallbacks:
+  company: z.string().default(""),
+  role: z.string().default("—"),
+  location: z.string().default("—"),
+  experience: z.string().default("—"),
+  salary: z.string().default("Not disclosed"),
+  size: z.string().default("—"),
+  status: z.enum(["Verified", "Review", "Conflict", "Incomplete"]).default("Review"),
 });
 
 // ─── Source summary ───────────────────────────────────────────────────────────
@@ -66,10 +81,13 @@ export const interventionSchema = z.object({
 export const qualitySummarySchema = z.object({
   collected: z.number(),
   unique: z.number(),
-  validated: z.number(),
+  validated: z.number(), // Qualified alias
   duplicates: z.number(),
-  incomplete: z.number(),
+  incomplete: z.number(), // Needs verification alias
   conflicts: z.number(),
+  qualified: z.number().optional(),
+  needsVerification: z.number().optional(),
+  excluded: z.number().optional(),
 });
 
 // ─── Stage execution status ───────────────────────────────────────────────────
@@ -83,6 +101,7 @@ export const executedStageSchema = z.object({
 // ─── Full pipeline result ─────────────────────────────────────────────────────
 export const pipelineResultSchema = z.object({
   planId: z.string(),
+  runId: z.string().optional(),
   title: z.string(),
   request: z.string(),
   completedAt: z.string(),
@@ -97,6 +116,7 @@ export const pipelineResultSchema = z.object({
 
 export type Evidence = z.infer<typeof evidenceSchema>;
 export type ConflictValue = z.infer<typeof conflictValueSchema>;
+export type Conflict = z.infer<typeof conflictSchema>;
 export type DatasetRecord = z.infer<typeof datasetRecordSchema>;
 export type SourceSummary = z.infer<typeof sourceSummarySchema>;
 export type Intervention = z.infer<typeof interventionSchema>;

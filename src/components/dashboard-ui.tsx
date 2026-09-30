@@ -128,7 +128,9 @@ export function Confidence({ value }: { value: number }) {
 
 export type TaskItem = {
   id: string;
+  runId?: string | undefined;
   name: string;
+  prompt?: string | undefined;
   status: "Running" | "Complete" | "Needs review" | "Queued" | string;
   progress: number;
   records: number;
@@ -159,21 +161,26 @@ export function TaskTable({
           </tr>
         </thead>
         <tbody>
-          {list.slice(0, compact ? 4 : undefined).map((task) => (
-            <tr key={task.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-              <td className="px-5 py-3.5">
-                <Link
-                  to={task.status === "Running" ? "/workflow" : "/datasets"}
-                  className="font-medium text-foreground hover:text-primary"
-                >
-                  {task.name}
-                </Link>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">{task.id}</p>
-              </td>
-              <td className="px-4 py-3.5">
-                <StatusBadge status={task.status} />
-              </td>
-              <td className="px-4 py-3.5">
+          {list.slice(0, compact ? 4 : undefined).map((task) => {
+            const taskRunId = "runId" in task && typeof task.runId === "string" ? task.runId : undefined;
+            return (
+              <tr key={task.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                <td className="px-5 py-3.5">
+                  <Link
+                    to={task.status === "Running" ? "/workflow" : "/datasets"}
+                    search={taskRunId ? { runId: taskRunId } : {}}
+                    className="font-medium text-foreground hover:text-primary"
+                  >
+                    {task.name}
+                  </Link>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {taskRunId || task.id}
+                  </p>
+                </td>
+                <td className="px-4 py-3.5">
+                  <StatusBadge status={task.status} />
+                </td>
+                <td className="px-4 py-3.5">
                 <div className="flex items-center gap-2">
                   <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
                     <div
@@ -197,14 +204,31 @@ export function TaskTable({
                 </Button>
               </td>
             </tr>
-          ))}
+          );
+        })}
         </tbody>
       </table>
     </div>
   );
 }
 
-export function QualityCallout() {
+export function QualityCallout({
+  summary,
+  headline,
+  pill,
+  outcomes,
+}: {
+  summary?: string | undefined;
+  headline?: string | undefined;
+  pill?: string | undefined;
+  outcomes?: [string, string][] | undefined;
+} = {}) {
+  const displayOutcomes = outcomes && outcomes.length > 0 ? outcomes : adaptiveOutcomes;
+  const displayHeadline = headline || "Adaptive collection and deterministic qualification";
+  const displaySummary =
+    summary ||
+    "Automated qualification validates each candidate record against hard constraints, recovers missing facts, and flags cross-source conflicts.";
+
   return (
     <div className="border border-primary/20 bg-primary-muted p-5">
       <div className="flex items-start gap-3">
@@ -213,17 +237,18 @@ export function QualityCallout() {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-semibold">Adaptive collection improved this run</h3>
-            <span className="rounded-full bg-success-muted px-2 py-0.5 text-[10px] font-semibold text-success">
-              Salary evidence 42% → 78%
-            </span>
+            <h3 className="text-sm font-semibold">{displayHeadline}</h3>
+            {pill && (
+              <span className="rounded-full bg-success-muted px-2 py-0.5 text-[10px] font-semibold text-success">
+                {pill}
+              </span>
+            )}
           </div>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Salary was missing or insufficient for 29 of 47 records. The workflow triggered targeted
-            searches on salary-bearing sources and recovered coverage without manual intervention.
+            {displaySummary}
           </p>
           <div className="mt-4 grid grid-cols-2 gap-px border border-primary/15 bg-primary/15 sm:grid-cols-4">
-            {adaptiveOutcomes.map(([v, l]) => (
+            {displayOutcomes.map(([v, l]) => (
               <div key={l} className="bg-card px-3 py-2.5">
                 <p className="text-sm font-semibold tabular-nums">{v}</p>
                 <p className="text-[10px] text-muted-foreground">{l}</p>
