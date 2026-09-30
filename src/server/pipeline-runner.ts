@@ -45,9 +45,9 @@ export function verifySnippetInContent(snippet: string, pageContent: string): bo
   const cleanContent = pageContent.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (cleanSnippet.length < 5) return false;
 
-  // Check full or 35-character prefix match
+  // Check full or 50-character prefix match
   if (cleanContent.includes(cleanSnippet)) return true;
-  const prefix = cleanSnippet.slice(0, 35);
+  const prefix = cleanSnippet.slice(0, 50);
   return cleanContent.includes(prefix);
 }
 
@@ -327,35 +327,23 @@ async function stageExtractWithQwen(
     ? input.requiredFields
     : ["Company", "Role", "Location", "Experience", "Salary", "Size"];
 
-  // Limit extraction to top 5 crawled pages and 2800 characters per page for fast inference
-  const pagesToExtract = crawledPages.slice(0, 5);
+  // Limit extraction to top 6 crawled pages and 4500 characters per page for inference
+  const pagesToExtract = crawledPages.slice(0, 6);
 
   for (const { searchMeta, crawl } of pagesToExtract) {
     if (!crawl.markdown || crawl.markdown.trim().length < 80) continue;
-    const pageSnippet = crawl.markdown.slice(0, 2800);
-    const systemPrompt = `You are DataIntel's AI Information Extraction Engine.
-Extract all structured entity records matching the user request: "${input.request}".
-Target entity: ${input.target || "Entity"}.
-Geography: ${input.geography || "Any"}.
-Required fields to extract: ${reqFields.join(", ")}.
+    const pageSnippet = crawl.markdown.slice(0, 4500);
+    const systemPrompt = `You are a data extraction engine. Extract structured records from web page text.
+User request: "${input.request}".
+Entity type: ${input.target || "Entity"}. Geography: ${input.geography || "Any"}.
+Required fields: ${reqFields.join(", ")}.
 
-CRITICAL RULES:
-1. Extract ONLY facts that actually appear in the text. Do NOT invent numbers, compensation, specs, or names.
-2. If any required field is not mentioned in the text, use "—" or "Not disclosed".
-3. For every extracted value, include the verbatim snippet from the text proving it.
-4. Output strictly a JSON array of records matching:
-[
-  {
-    "entityName": "<canonical name of company, product model, property listing, or entity>",
-    "attributes": {
-      "${reqFields[0] || "Field1"}": "<extracted value>",
-      "${reqFields[1] || "Field2"}": "<extracted value>"
-    },
-    "evidence": [
-      { "field": "<field name>", "value": "<extracted value>", "snippet": "<exact verbatim quote from text>" }
-    ]
-  }
-]`;
+Rules:
+1. Extract ONLY facts from the text. Never invent data.
+2. Use "Not disclosed" for missing fields.
+3. Include a verbatim text snippet as evidence for each extracted value.
+4. Output a JSON array:
+[{"entityName":"...","attributes":{${reqFields.slice(0, 4).map(f => `"${f}":"..."`).join(",")}},"evidence":[{"field":"...","value":"...","snippet":"exact quote"}]}]`;
 
     const prompt = `Page Title: ${crawl.title || searchMeta.title}\nPage URL: ${searchMeta.url}\n\nWeb Page Text Content:\n${pageSnippet}\n\nExtract matching records as a JSON array.`;
 
@@ -727,7 +715,7 @@ async function stageAdaptiveFollowUp(
   // Identify problem records with missing hard constraints or conflicts
   const problemRecords = records
     .filter((r) => r.qualificationStatus === "Needs verification" || r.qualificationStatus === "Conflict")
-    .slice(0, 2);
+    .slice(0, 5);
 
   if (coverageBefore >= 85 || problemRecords.length === 0) {
     return { records, additionallyVerified: 0, coverageBefore, coverageAfter: coverageBefore };

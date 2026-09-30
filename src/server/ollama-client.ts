@@ -1,5 +1,5 @@
 /**
- * ollama-client.ts - Local Ollama LLM integration (Qwen3 4B)
+ * ollama-client.ts - Local Ollama LLM integration (Qwen2.5 3B)
  */
 
 import dotenv from "dotenv";
@@ -58,12 +58,31 @@ export async function checkOllamaHealth(config: OllamaConfig = getOllamaConfig()
   }
 }
 
-export async function callOllamaJson<T = unknown>(
-  prompt: string,
-  systemPrompt?: string,
-  config: OllamaConfig = getOllamaConfig(),
-): Promise<T> {
+// ─── Cached health check to avoid redundant health requests per pipeline run ──
+let _healthCache: { ok: boolean; modelInstalled: boolean; models: string[]; ts: number; configKey: string } | null = null;
+const HEALTH_CACHE_MS = 60_000; // Cache health status for 60 seconds
+
+async function ensureOllamaHealthy(config: OllamaConfig): Promise<void> {
+  const configKey = `${config.baseUrl}::${config.model}`;
+  if (
+    _healthCache &&
+    _healthCache.configKey === configKey &&
+    _healthCache.ok &&
+    _healthCache.modelInstalled &&
+    Date.now() - _healthCache.ts < HEALTH_CACHE_MS
+  ) {
+    return; // Cached and healthy
+  }
+
   const health = await checkOllamaHealth(config);
+  _healthCache = {
+    ok: health.ok,
+    modelInstalled: health.modelInstalled,
+    models: health.models,
+    ts: Date.now(),
+    configKey,
+  };
+
   if (!health.ok) {
     throw new Error(
       `Ollama is not running at ${config.baseUrl} (${health.error || "connection refused"}). ` +
@@ -78,6 +97,14 @@ export async function callOllamaJson<T = unknown>(
       `Please run: ollama pull ${config.model}`,
     );
   }
+}
+
+export async function callOllamaJson<T = unknown>(
+  prompt: string,
+  systemPrompt?: string,
+  config: OllamaConfig = getOllamaConfig(),
+): Promise<T> {
+  await ensureOllamaHealthy(config);
 
   const endpoint = `${config.baseUrl}/api/chat`;
   const body = {
@@ -96,8 +123,8 @@ export async function callOllamaJson<T = unknown>(
     stream: false,
     options: {
       temperature: 0.1,
-      num_predict: 1024,
-      num_ctx: 2048,
+      num_predict: 2048,
+      num_ctx: 4096,
       ...(process.env["OLLAMA_NUM_GPU"] !== undefined
         ? { num_gpu: Number(process.env["OLLAMA_NUM_GPU"]) }
         : {}),
