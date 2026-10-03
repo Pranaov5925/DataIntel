@@ -7,6 +7,14 @@ import type {
   RunComparison,
 } from "../lib/storage-schema";
 import {
+  migrateFromJsonStoreIfNeeded,
+  dbGetRequests,
+  dbGetRuns,
+  dbGetRunById,
+  dbSaveRequest,
+  dbSaveRun,
+} from "./db";
+import {
   datasetRows,
   DEMO_REQUEST,
   interventions as mockInterventions,
@@ -17,7 +25,13 @@ import {
   tasks as mockTasks,
 } from "../lib/mock-data";
 import type { RequirementUnderstanding, WorkflowStep } from "../lib/workflow-schema";
-import type { ExecutedStage, DatasetRecord, QualificationStatus } from "../lib/pipeline-schema";
+import type {
+  ExecutedStage,
+  DatasetRecord,
+  QualificationStatus,
+  Conflict,
+  Evidence,
+} from "../lib/pipeline-schema";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const STORE_FILE = path.join(DATA_DIR, "store.json");
@@ -33,8 +47,27 @@ function timeAgo(minutesAgo: number): string {
   return d.toLocaleString("en-IN", { timeZone: "Asia/Kolkata", hour12: false });
 }
 
-function normalizeMockRecord(r: any): DatasetRecord {
-  const entityName = r.entityName || r.company || r.title || r.id;
+function normalizeMockRecord(r: {
+  id?: string;
+  entityName?: string;
+  company?: string;
+  title?: string;
+  role?: string;
+  location?: string;
+  experience?: string;
+  salary?: string;
+  size?: string;
+  source?: string;
+  status?: string;
+  qualificationStatus?: QualificationStatus;
+  qualificationReason?: string;
+  verificationStatus?: "Confirmed" | "Partially verified" | "Needs verification";
+  conflicts?: Conflict[];
+  conflict?: Conflict;
+  attributes?: Record<string, string | null>;
+  [key: string]: unknown;
+}): DatasetRecord {
+  const entityName = r.entityName || r.company || r.title || r.id || "Entity";
   const attributes: Record<string, string | null> = r.attributes || {
     Company: r.company || null,
     Role: r.role || null,
@@ -53,13 +86,30 @@ function normalizeMockRecord(r: any): DatasetRecord {
         : "Needs verification");
 
   return {
-    ...r,
+    id: r.id || `rec-${Math.random().toString(36).slice(2, 8)}`,
+    company: r.company || entityName,
+    role: r.role || "—",
+    location: r.location || "—",
+    experience: r.experience || "—",
+    salary: r.salary || "Not disclosed",
+    size: r.size || "—",
+    source: r.source || "Web Research",
+    status: (r.status === "Verified" ||
+    r.status === "Conflict" ||
+    r.status === "Review" ||
+    r.status === "Incomplete"
+      ? r.status
+      : "Review") as "Verified" | "Conflict" | "Review" | "Incomplete",
+    confidence: typeof r["confidence"] === "number" ? (r["confidence"] as number) : 80,
+    evidence: Array.isArray(r["evidence"]) ? (r["evidence"] as Evidence[]) : [],
     entityName,
     attributes,
     qualificationStatus: qualStatus,
     qualificationReason:
-      r.qualificationReason || (qualStatus === "Qualified" ? "All constraints satisfied" : undefined),
-    verificationStatus: r.verificationStatus || (r.status === "Verified" ? "Cross-verified" : "Needs review"),
+      r.qualificationReason ||
+      (qualStatus === "Qualified" ? "All constraints satisfied" : undefined),
+    verificationStatus:
+      r.verificationStatus || (r.status === "Verified" ? "Confirmed" : "Needs verification"),
     conflicts: r.conflicts || (r.conflict ? [r.conflict] : []),
   };
 }
@@ -67,7 +117,8 @@ function normalizeMockRecord(r: any): DatasetRecord {
 // ─── Default Initial Seed ─────────────────────────────────────────────────────
 function buildInitialSeed(): AppStore {
   const understandingObj: RequirementUnderstanding = {
-    objective: "Identify Indian SaaS companies hiring Java backend developers with verified salary and company size data",
+    objective:
+      "Identify Indian SaaS companies hiring Java backend developers with verified salary and company size data",
     target: "Job openings",
     geography: "India",
     industry: "SaaS",
@@ -158,7 +209,9 @@ function buildInitialSeed(): AppStore {
       {
         time: mockInterventions[1]?.time ?? "14:15:30",
         title: mockInterventions[1]?.title ?? "Evidence gap detected",
-        detail: mockInterventions[1]?.detail ?? "Salary evidence coverage is 42%. Missing salary for 29 records.",
+        detail:
+          mockInterventions[1]?.detail ??
+          "Salary evidence coverage is 42%. Missing salary for 29 records.",
         tone: (mockInterventions[1]?.tone ?? "warning") as "accent" | "warning" | "success",
       },
     ],
@@ -304,11 +357,35 @@ export async function getStore(): Promise<AppStore> {
   if (memoryCache) return memoryCache;
 
   await ensureDataDir();
+  migrateFromJsonStoreIfNeeded();
+
+  try {
+    const sqliteRuns = dbGetRuns();
+    const sqliteRequests = dbGetRequests();
+    if (sqliteRuns.length > 0 && sqliteRequests.length > 0) {
+      const activeRunId = sqliteRuns[0]?.id || "RUN-DR1048-v2";
+      const activeRequestId = sqliteRuns[0]?.requestId || "DR-1048";
+      const storeObj: AppStore = {
+        activeRequestId,
+        activeRunId,
+        requests: sqliteRequests,
+        runs: sqliteRuns,
+      };
+      memoryCache = storeObj;
+      return storeObj;
+    }
+  } catch (err) {
+    console.warn("[SQLite Storage] Error querying SQLite, falling back to JSON file:", err);
+  }
+
   try {
     const raw = await fs.readFile(STORE_FILE, "utf-8");
     const parsed = JSON.parse(raw) as AppStore;
     if (parsed && Array.isArray(parsed.requests) && Array.isArray(parsed.runs)) {
       memoryCache = parsed;
+      // Sync into SQLite
+      for (const r of parsed.requests) dbSaveRequest(r);
+      for (const run of parsed.runs) dbSaveRun(run);
       return parsed;
     }
   } catch {
@@ -323,6 +400,20 @@ export async function getStore(): Promise<AppStore> {
 export async function saveStore(store: AppStore): Promise<void> {
   memoryCache = store;
   await ensureDataDir();
+
+  // Save to SQLite
+  try {
+    for (const req of store.requests) {
+      dbSaveRequest(req);
+    }
+    for (const run of store.runs) {
+      dbSaveRun(run);
+    }
+  } catch (dbErr) {
+    console.error("[SQLite Storage] Failed writing store to SQLite:", dbErr);
+  }
+
+  // Backup JSON save
   const tempFile = `${STORE_FILE}.tmp.${Date.now()}`;
   await fs.writeFile(tempFile, JSON.stringify(store, null, 2), "utf-8");
   try {
@@ -364,7 +455,9 @@ export async function setActiveRun(runId: string): Promise<PersistedRun | null> 
 
 export async function getRunById(runId: string): Promise<PersistedRun | null> {
   const store = await getStore();
-  return store.runs.find((r) => r.id === runId) ?? null;
+  const cached = store.runs.find((r) => r.id === runId);
+  if (cached) return cached;
+  return dbGetRunById(runId);
 }
 
 export async function getRunsList(): Promise<PersistedRun[]> {
@@ -385,7 +478,8 @@ export async function saveNewRun(run: PersistedRun): Promise<PersistedRun> {
   if (!req) {
     req = {
       id: run.requestId,
-      name: run.requestName || (run as unknown as { title?: string }).title || "Custom Data Request",
+      name:
+        run.requestName || (run as unknown as { title?: string }).title || "Custom Data Request",
       prompt: run.originalPrompt,
       status: "completed",
       createdAt: run.createdAt || nowIST(),
@@ -414,26 +508,45 @@ export async function saveNewRun(run: PersistedRun): Promise<PersistedRun> {
   store.activeRunId = run.id;
   store.activeRequestId = run.requestId;
 
+  // Save to SQLite & file
+  dbSaveRun(run);
   await saveStore(store);
   return run;
 }
 
 // ─── Rerun Workflow Logic ─────────────────────────────────────────────────────
 export async function rerunWorkflow(
-  requestId: string,
+  requestIdOrRunId: string,
 ): Promise<{ newRun: PersistedRun; comparison: RunComparison }> {
   const store = await getStore();
-  const req = store.requests.find((r) => r.id === requestId);
-  if (!req) {
-    throw new Error(`Request ${requestId} not found.`);
-  }
-
-  // Find previous runs for this request
+  let req = store.requests.find((r) => r.id === requestIdOrRunId);
   const previousRuns = store.runs
-    .filter((r) => r.requestId === requestId)
+    .filter((r) => r.requestId === requestIdOrRunId || r.id === requestIdOrRunId)
     .sort((a, b) => b.runNumber - a.runNumber);
 
   const prevRun = previousRuns[0];
+  const requestId = prevRun ? prevRun.requestId : requestIdOrRunId;
+
+  if (!req && prevRun) {
+    req = store.requests.find((r) => r.id === prevRun.requestId) ?? {
+      id: prevRun.requestId,
+      name: prevRun.requestName || "Custom Data Request",
+      prompt: prevRun.originalPrompt,
+      status: "completed",
+      createdAt: prevRun.createdAt,
+      updatedAt: nowIST(),
+      runIds: [prevRun.id],
+      activeRunId: prevRun.id,
+    };
+    if (!store.requests.some((r) => r.id === req!.id)) {
+      store.requests.unshift(req);
+    }
+  }
+
+  if (!req) {
+    throw new Error(`Request ${requestIdOrRunId} not found.`);
+  }
+
   const nextRunNumber = (prevRun?.runNumber ?? 1) + 1;
   const newRunId = `RUN-${requestId}-v${nextRunNumber}`;
 

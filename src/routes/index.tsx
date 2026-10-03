@@ -145,12 +145,12 @@ function Index() {
       </section>
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,.55fr)]">
         <div className="space-y-6">
-          <section className="border border-border bg-card">
+          <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-all duration-200 hover:shadow-md">
             <SectionHeader
               title="Active and recent requests"
               subtitle="Latest data collection activity"
               action={
-                <Link to="/history" className="text-xs font-semibold text-primary">
+                <Link to="/history" className="text-xs font-semibold text-primary hover:underline">
                   View all
                 </Link>
               }
@@ -163,7 +163,7 @@ function Index() {
           />
         </div>
         <aside className="space-y-6">
-          <section className="border border-border bg-card">
+          <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-all duration-200 hover:shadow-md">
             <SectionHeader
               title="Active workflow"
               subtitle={`${activeRun?.requestName || "Active collection workflow"} · ${runVersion}`}
@@ -171,10 +171,12 @@ function Index() {
             <div className="p-5">
               <div className="flex items-end justify-between">
                 <div>
-                  <p className="text-3xl font-semibold">100%</p>
+                  <p className="font-display text-3xl font-semibold tracking-tight text-foreground">
+                    100%
+                  </p>
                   <p className="mt-1 text-xs text-muted-foreground">Step 8 of 8 complete</p>
                 </div>
-                <span className="rounded-full bg-success-muted px-2 py-1 text-[11px] font-semibold text-success">
+                <span className="rounded-full border border-success/30 bg-success-muted px-2.5 py-0.5 text-[11px] font-semibold text-success">
                   Complete
                 </span>
               </div>
@@ -192,7 +194,7 @@ function Index() {
                     <div key={String(label)} className="flex items-center gap-3 text-xs">
                       <C className="size-4 text-muted-foreground" />
                       <span className="flex-1 text-muted-foreground">{String(label)}</span>
-                      <strong>{String(value)}</strong>
+                      <strong className="text-foreground">{String(value)}</strong>
                     </div>
                   );
                 })}
@@ -200,28 +202,30 @@ function Index() {
               <Link
                 to="/workflow"
                 search={activeRun ? { runId: activeRun.id } : {}}
-                className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs font-semibold text-primary"
+                className="mt-5 flex items-center justify-between border-t border-border pt-4 text-xs font-semibold text-primary transition-colors hover:underline"
               >
                 Monitor workflow <ArrowRight className="size-4" />
               </Link>
             </div>
           </section>
-          <section className="border border-border bg-card">
+          <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-all duration-200 hover:shadow-md">
             <SectionHeader title="Needs attention" subtitle={`Data quality items in ${planId}`} />
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-border/60">
               {attention.map(({ icon: Icon, label, value, detail, to }) => (
                 <Link
                   key={label}
                   to={to}
                   search={activeRun ? { runId: activeRun.id } : {}}
-                  className="flex items-center gap-3 px-5 py-3.5 hover:bg-muted/30"
+                  className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-muted/40"
                 >
                   <Icon className="size-4 text-muted-foreground" />
                   <span className="flex-1">
-                    <span className="block text-xs font-medium">{label}</span>
+                    <span className="block text-xs font-medium text-foreground">{label}</span>
                     <span className="block text-[11px] text-muted-foreground">{detail}</span>
                   </span>
-                  <strong className="text-sm tabular-nums">{value}</strong>
+                  <strong className="font-display text-sm tabular-nums text-foreground">
+                    {value}
+                  </strong>
                 </Link>
               ))}
             </div>

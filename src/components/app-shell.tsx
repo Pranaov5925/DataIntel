@@ -52,8 +52,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const searchObj = useRouterState({ select: (state) => state.location.search }) as Record<string, unknown>;
-  const activeRunId = typeof searchObj?.["runId"] === "string" ? (searchObj["runId"] as string) : undefined;
+  const searchObj = useRouterState({ select: (state) => state.location.search }) as Record<
+    string,
+    unknown
+  >;
+  const activeRunId =
+    typeof searchObj?.["runId"] === "string" ? (searchObj["runId"] as string) : undefined;
 
   const baseDetails = pageDetails[pathname] ?? { title: "Overview", eyebrow: "Workspace" };
   const details = {

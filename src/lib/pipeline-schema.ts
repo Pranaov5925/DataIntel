@@ -36,16 +36,58 @@ export const qualificationStatusSchema = z.enum([
 
 export type QualificationStatus = z.infer<typeof qualificationStatusSchema>;
 
+// ─── Constraint Evaluation Detail ─────────────────────────────────────────────
+export const constraintResultSchema = z.enum(["PASS", "FAIL", "UNKNOWN"]);
+export type ConstraintResult = z.infer<typeof constraintResultSchema>;
+
+export const constraintEvaluationSchema = z.object({
+  field: z.string(),
+  operator: z.string(),
+  expected: z.string(),
+  actual: z.string().nullable(),
+  normalizedValue: z.number().nullable(),
+  result: constraintResultSchema,
+  reason: z.string(),
+});
+export type ConstraintEvaluation = z.infer<typeof constraintEvaluationSchema>;
+
+export const qualificationDetailsSchema = z.object({
+  constraints: z.array(constraintEvaluationSchema).default([]),
+  missingFields: z.array(z.string()).default([]),
+  completenessScore: z.number().min(0).max(100).default(0),
+});
+export type QualificationDetails = z.infer<typeof qualificationDetailsSchema>;
+
+export const evidenceBreakdownSchema = z.object({
+  requiredFieldSupport: z.number().min(0).max(100),
+  evidenceDirectness: z.number().min(0).max(100),
+  sourceQuality: z.number().min(0).max(100),
+  sourceAgreement: z.number().min(0).max(100),
+  freshness: z.number().min(0).max(100),
+  freshnessStatus: z.enum(["RECENT", "MODERATE", "AGED", "UNKNOWN"]).default("UNKNOWN"),
+  entityConsistency: z.number().min(0).max(100),
+  extractionReliability: z.number().min(0).max(100),
+  conflictPenalty: z.number().min(0).max(100).default(0),
+  inferencePenalty: z.number().min(0).max(100).default(0),
+  scoreFormula: z.string().optional(),
+  summary: z.string().optional(),
+  directnessMap: z.record(z.string(), z.enum(["DIRECT", "INDIRECT", "WEAK", "MISSING"])).optional(),
+});
+export type EvidenceBreakdown = z.infer<typeof evidenceBreakdownSchema>;
+
 // ─── Dataset Record ───────────────────────────────────────────────────────────
 export const datasetRecordSchema = z.object({
   id: z.string(),
   entityName: z.string().default(""), // Domain-neutral primary entity identity
   attributes: z.record(z.string(), z.string().nullable()).default({}), // Dynamic source-of-truth attributes
   source: z.string(),
-  confidence: z.number().int().min(0).max(100),
+  confidence: z.number().int().min(0).max(100), // Calibrated Evidence Reliability score (0-100)
+  reliabilityScore: z.number().int().min(0).max(100).optional(),
+  evidenceBreakdown: evidenceBreakdownSchema.optional(),
   verificationStatus: verificationSchema.default("Needs verification"),
   qualificationStatus: qualificationStatusSchema.default("Needs verification"),
   qualificationReason: z.string().optional(),
+  qualificationDetails: qualificationDetailsSchema.optional(),
   evidence: z.array(evidenceSchema).default([]),
   conflict: conflictSchema.optional(),
   conflicts: z.array(conflictSchema).default([]),

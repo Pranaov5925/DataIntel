@@ -19,7 +19,7 @@ export type WorkspacePreferences = {
 
 const STORAGE_KEY = "dataintel_preferences";
 
-export function getStoredPreferences(): WorkspacePreferences {
+function getStoredPreferences(): WorkspacePreferences {
   if (typeof window === "undefined") {
     return {
       userName: "Pravin M.",
@@ -113,7 +113,9 @@ export function SettingsDialog({
                 <button
                   key={opt.key}
                   type="button"
-                  onClick={() => setPrefs({ ...prefs, defaultView: opt.key as "Qualified" | "All" })}
+                  onClick={() =>
+                    setPrefs({ ...prefs, defaultView: opt.key as "Qualified" | "All" })
+                  }
                   className={`rounded-md border p-2.5 text-left transition ${
                     prefs.defaultView === opt.key
                       ? "border-primary bg-primary/10 text-primary font-medium"

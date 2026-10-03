@@ -1,4 +1,3 @@
-
 import {
   collectionPlanSchema,
   workflowResponseSchema,
@@ -13,12 +12,9 @@ export type RunWorkflowInput = {
 };
 
 export type RunWorkflowResult =
-  | { success: true; data: CollectionPlan }
-  | { success: false; error: string };
+  { success: true; data: CollectionPlan } | { success: false; error: string };
 
-export async function runMistralWorkflow(
-  input: RunWorkflowInput,
-): Promise<RunWorkflowResult> {
+export async function runMistralWorkflow(input: RunWorkflowInput): Promise<RunWorkflowResult> {
   const systemInstruction = `You are an AI Research Architect and Data Collection Planner for DataIntel, an enterprise AI Data Intelligence Platform.
 Your mission is to analyze any natural-language data collection request and generate:
 1. "understanding": A deep structured requirement analysis with:
@@ -88,9 +84,7 @@ Return strictly a valid JSON object matching the requested schema. No markdown f
       validated.data.understanding.constraints,
     );
 
-    const mergedConstraints = [
-      ...(validated.data.understanding.structuredConstraints || []),
-    ];
+    const mergedConstraints = [...(validated.data.understanding.structuredConstraints || [])];
     for (const dc of deterministic.structuredConstraints) {
       if (!mergedConstraints.some((c) => c.field === dc.field && c.operator === dc.operator)) {
         mergedConstraints.push(dc);

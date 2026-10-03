@@ -1,10 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Database, ExternalLink, FileText, Globe, Loader2, Quote, AlertTriangle } from "lucide-react";
+import {
+  ArrowRight,
+  Copy,
+  Database,
+  ExternalLink,
+  FileText,
+  GitBranch,
+  Globe,
+  Loader2,
+  Quote,
+  AlertTriangle,
+  Waypoints,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageIntro, StatusBadge } from "@/components/dashboard-ui";
 import { RecordDetail } from "@/components/record-detail";
-import { datasetRows, sources as mockSources } from "@/lib/mock-data";
-import type { DatasetRecord as MockDatasetRecord } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { usePipelineResult } from "@/lib/pipeline-store";
 import { getActiveRunFn, getRunByIdFn } from "@/lib/storage-fns";
@@ -12,11 +23,13 @@ import type { PersistedRun } from "@/lib/storage-schema";
 
 export type EvidenceSearch = {
   runId?: string | undefined;
+  recordId?: string | undefined;
 };
 
 export const Route = createFileRoute("/evidence")({
   validateSearch: (search: Record<string, unknown>): EvidenceSearch => ({
     runId: typeof search["runId"] === "string" ? (search["runId"] as string) : undefined,
+    recordId: typeof search["recordId"] === "string" ? (search["recordId"] as string) : undefined,
   }),
   head: () => ({
     meta: [
@@ -94,7 +107,7 @@ function EvidencePage() {
     if (pipelineResult) {
       return pipelineResult.records ?? [];
     }
-    return datasetRows;
+    return [];
   }, [explicitRunId, persistedRun, pipelineResult]);
 
   const activeSources = useMemo(() => {
@@ -107,7 +120,7 @@ function EvidencePage() {
     if (pipelineResult) {
       return pipelineResult.sources ?? [];
     }
-    return mockSources;
+    return [];
   }, [explicitRunId, persistedRun, pipelineResult]);
 
   const items = useMemo(
@@ -118,22 +131,44 @@ function EvidencePage() {
           id: `${r.id}-${e.field}-${idx}`,
           runId: persistedRun?.id || explicitRunId || "active-run",
           recordId: r.id,
-          company: ("entityName" in r && r.entityName ? r.entityName : (r as any).company) || r.id,
+          company:
+            ("entityName" in r && typeof r.entityName === "string" && r.entityName
+              ? r.entityName
+              : "company" in r && typeof (r as { company?: unknown }).company === "string"
+                ? String((r as { company?: unknown }).company)
+                : r.id) || r.id,
         })),
       ),
     [activeRecords, persistedRun, explicitRunId],
   );
 
-  const planId = persistedRun?.requestId || (explicitRunId ? explicitRunId : pipelineResult?.planId || "Selected collection");
+  const planId =
+    persistedRun?.requestId ||
+    (explicitRunId ? explicitRunId : pipelineResult?.planId || "Selected collection");
   const runVersion = persistedRun ? `v${persistedRun.runNumber}` : "";
   const pageEyebrow = persistedRun?.id ? `Run · ${persistedRun.id}` : `Provenance · ${planId}`;
 
+  const explicitRecordId = search?.recordId;
   const [src, setSrc] = useState<string>("All");
   const list = useMemo(
-    () => items.filter((i) => src === "All" || i.source.toLowerCase().startsWith(src.split(" ")[0]?.toLowerCase() ?? "")),
+    () =>
+      items.filter(
+        (i) =>
+          src === "All" ||
+          i.source.toLowerCase().startsWith(src.split(" ")[0]?.toLowerCase() ?? ""),
+      ),
     [src, items],
   );
   const [key, setKey] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (explicitRecordId && items.length > 0) {
+      const match = items.find((i) => i.recordId === explicitRecordId);
+      if (match) setKey(match.id);
+    }
+  }, [explicitRecordId, items]);
+
   const firstKey = items[0]?.id || "";
   const activeKey = key || firstKey;
   const item = items.find((i) => i.id === activeKey) ?? items[0];
@@ -141,7 +176,10 @@ function EvidencePage() {
 
   const coveragePercent =
     items.length > 0
-      ? Math.round((items.filter((i) => i.verification !== "Needs verification").length / items.length) * 100)
+      ? Math.round(
+          (items.filter((i) => i.verification !== "Needs verification").length / items.length) *
+            100,
+        )
       : 0;
 
   const openConflictsCount =
@@ -151,7 +189,9 @@ function EvidencePage() {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3">
         <Loader2 className="size-6 animate-spin text-primary" />
-        <p className="text-xs text-muted-foreground">Loading evidence for run {explicitRunId || "active"}…</p>
+        <p className="text-xs text-muted-foreground">
+          Loading evidence for run {explicitRunId || "active"}…
+        </p>
       </div>
     );
   }
@@ -163,7 +203,9 @@ function EvidencePage() {
           <AlertTriangle className="mx-auto size-8 text-destructive" />
           <h2 className="mt-3 text-lg font-semibold">Workflow Run Not Found</h2>
           <p className="mt-2 text-xs text-muted-foreground">
-            The requested run <span className="font-mono text-foreground font-semibold">{explicitRunId}</span> does not exist in local storage.
+            The requested run{" "}
+            <span className="font-mono text-foreground font-semibold">{explicitRunId}</span> does
+            not exist in local storage.
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link
@@ -178,20 +220,70 @@ function EvidencePage() {
     );
   }
 
+  if (items.length === 0) {
+    return (
+      <div>
+        <PageIntro
+          eyebrow="Evidence & Provenance"
+          title="No evidence records available"
+          description="There are currently no research collection runs or evidence citations to display."
+          actions={
+            <Link to="/requests">
+              <Button>
+                Create Request
+                <ArrowRight className="size-4 ml-1.5" />
+              </Button>
+            </Link>
+          }
+        />
+        <div className="mt-8 rounded-lg border border-dashed border-border bg-card p-12 text-center">
+          <Quote className="mx-auto size-10 text-muted-foreground/40 mb-3" />
+          <h3 className="text-sm font-semibold">No evidence citations found</h3>
+          <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
+            Evidence cards trace every extracted attribute back to real web quotes and canonical
+            URLs. Run a collection workflow to generate evidence.
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link to="/requests">
+              <Button size="sm">Start Research</Button>
+            </Link>
+            <Link to="/datasets">
+              <Button variant="outline" size="sm">
+                Dataset Explorer
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageIntro
         eyebrow={pageEyebrow}
         title="Sources &amp; evidence"
         description="Follow any value back to the exact source text it was extracted from: Source → Evidence → Extracted value → Dataset record."
+        actions={
+          <div className="flex items-center gap-2">
+            <Link to="/workflow" search={persistedRun ? { runId: persistedRun.id } : {}}>
+              <Button variant="outline">
+                <Waypoints className="size-4" />
+                Workflow
+              </Button>
+            </Link>
+            <Link to="/datasets" search={persistedRun ? { runId: persistedRun.id } : {}}>
+              <Button variant="outline">
+                <Database className="size-4" />
+                Dataset
+              </Button>
+            </Link>
+          </div>
+        }
       />
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
         {[
-          [
-            `${coveragePercent}%`,
-            "Evidence coverage",
-            "Values linked to a snippet",
-          ],
+          [`${coveragePercent}%`, "Evidence coverage", "Values linked to a snippet"],
           [String(items.length), "Field-level citations", "In this dataset"],
           [String(openConflictsCount), "Open conflicts", "Awaiting review"],
           [String(activeSources.length), "Sources used", "Verified web sources"],
@@ -283,12 +375,19 @@ function EvidencePage() {
           {item && record ? (
             <>
               <div className="border-b border-border p-5">
-                <p className="text-[10px] font-semibold uppercase text-primary">Traceability chain</p>
+                <p className="text-[10px] font-semibold uppercase text-primary">
+                  Traceability chain
+                </p>
                 <ol className="mt-4 space-y-2">
                   {[
                     [Globe, "Source", `${item.source}`, item.url],
                     [Quote, "Evidence", item.snippet, `Retrieved ${item.retrieved}`],
-                    [FileText, "Extracted value", `${item.field}: ${item.value}`, item.verification],
+                    [
+                      FileText,
+                      "Extracted value",
+                      `${item.field}: ${item.value}`,
+                      item.verification,
+                    ],
                     [Database, "Dataset record", `${item.company} · ${record.role}`, item.recordId],
                   ].map(([Icon, label, main, sub], idx) => {
                     const C = Icon as typeof Globe;
@@ -310,7 +409,9 @@ function EvidencePage() {
                             </p>
                             {label === "Source" && item.url && item.url !== "—" ? (
                               <a
-                                href={item.url.startsWith("http") ? item.url : `https://${item.url}`}
+                                href={
+                                  item.url.startsWith("http") ? item.url : `https://${item.url}`
+                                }
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="mt-0.5 inline-flex items-center gap-1 truncate text-[10px] text-primary hover:underline"
@@ -332,10 +433,54 @@ function EvidencePage() {
                   })}
                 </ol>
               </div>
-              <RecordDetail record={record as MockDatasetRecord} />
+              <div className="flex flex-wrap items-center gap-2 p-4 border-b border-border bg-muted/20">
+                {item.url && item.url !== "—" ? (
+                  <a
+                    href={item.url.startsWith("http") ? item.url : `https://${item.url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button size="sm" className="h-7 text-xs">
+                      <ExternalLink className="size-3 mr-1" /> Open source
+                    </Button>
+                  </a>
+                ) : (
+                  <Button size="sm" variant="outline" disabled className="h-7 text-xs">
+                    Source unavailable
+                  </Button>
+                )}
+                {item.url && item.url !== "—" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      navigator.clipboard.writeText(item.url);
+                      setCopiedId(item.id);
+                      setTimeout(() => setCopiedId(null), 2000);
+                    }}
+                  >
+                    <Copy className="size-3 mr-1" />
+                    {copiedId === item.id ? "Copied!" : "Copy URL"}
+                  </Button>
+                )}
+                <Link to="/datasets" search={{ runId: item.runId, recordId: item.recordId }}>
+                  <Button size="sm" variant="outline" className="h-7 text-xs">
+                    <Database className="size-3 mr-1" /> View record
+                  </Button>
+                </Link>
+                <Link to="/history">
+                  <Button size="sm" variant="outline" className="h-7 text-xs">
+                    <GitBranch className="size-3 mr-1" /> View run
+                  </Button>
+                </Link>
+              </div>
+              <RecordDetail record={record} />
             </>
           ) : (
-            <div className="p-5 text-xs text-muted-foreground">Select an evidence item to trace it.</div>
+            <div className="p-5 text-xs text-muted-foreground">
+              Select an evidence item to trace it.
+            </div>
           )}
         </aside>
       </div>

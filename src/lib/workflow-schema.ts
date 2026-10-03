@@ -20,23 +20,40 @@ export const structuredConstraintOperatorSchema = z.enum([
   "equals",
   "not_equals",
   "contains",
-  "in",
+  "not_contains",
+  "starts_with",
+  "ends_with",
   "greater_than",
   "greater_than_or_equal",
   "less_than",
   "less_than_or_equal",
   "between",
+  "in",
+  "not_in",
+  "before",
+  "after",
+  "within",
+  "semantic_match",
+  "contains_any",
+  "contains_all",
 ]);
 
 export type StructuredConstraintOperator = z.infer<typeof structuredConstraintOperatorSchema>;
 
 export const structuredConstraintSchema = z.object({
-  field: z.string().describe("Target attribute or field name, e.g. company_size, price, range, location"),
+  field: z
+    .string()
+    .describe("Target attribute or field name, e.g. company_size, price, range, location"),
   operator: structuredConstraintOperatorSchema.describe("Evaluation operator"),
-  value: z.coerce.string().describe("Target comparison value, or minimum bound if operator is 'between'"),
+  value: z.coerce
+    .string()
+    .describe("Target comparison value, or minimum bound if operator is 'between'"),
   valueTo: z.coerce.string().optional().describe("Upper bound if operator is 'between'"),
   unit: z.string().optional().describe("Unit of measurement, e.g. INR, employees, km, LPA"),
-  hard: z.boolean().default(true).describe("True if failure disqualifies record; false if optional"),
+  hard: z
+    .boolean()
+    .default(true)
+    .describe("True if failure disqualifies record; false if optional"),
 });
 
 export type StructuredConstraint = z.infer<typeof structuredConstraintSchema>;
@@ -57,13 +74,16 @@ export const requirementUnderstandingSchema = z.object({
   constraints: stringOrArray.describe(
     "Specific natural-language filters, constraints, or qualifiers",
   ),
-  structuredConstraints: z.array(structuredConstraintSchema).default([]).describe(
-    "Machine-evaluable qualification rules extracted from constraints",
-  ),
+  structuredConstraints: z
+    .array(structuredConstraintSchema)
+    .default([])
+    .describe("Machine-evaluable qualification rules extracted from constraints"),
   requiredFields: stringOrArray.describe("List of required data attributes or columns to extract"),
-  optionalFields: stringOrArray.default([]).describe(
-    "List of optional fields (e.g. 'salary if available') that do not disqualify records if absent",
-  ),
+  optionalFields: stringOrArray
+    .default([])
+    .describe(
+      "List of optional fields (e.g. 'salary if available') that do not disqualify records if absent",
+    ),
   freshness: z.string().describe("Timeframe or recency requirement for the data"),
   searchIntent: z.string().describe("Underlying search intent or operational goal"),
 });

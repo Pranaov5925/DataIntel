@@ -23,6 +23,13 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Local Database & runtime state
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+data/*.sqlite*
+
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

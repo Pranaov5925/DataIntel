@@ -26,6 +26,53 @@ export const setActiveRunFn = createServerFn({ method: "POST" })
     return setActiveRun(data.runId);
   });
 
+// ─── Get Workflow Data ────────────────────────────────────────────────────────
+export type WorkflowRunSummary = {
+  id: string;
+  requestId: string;
+  runNumber: number;
+  requestName: string;
+  originalPrompt: string;
+  createdAt: string;
+  validated: number;
+  unique: number;
+};
+
+export type WorkflowData = {
+  activeRun: PersistedRun | null;
+  runs: WorkflowRunSummary[];
+};
+
+export const getWorkflowDataFn = createServerFn({ method: "GET" })
+  .validator((input: unknown) => z.object({ runId: z.string().optional() }).parse(input))
+  .handler(async ({ data }): Promise<WorkflowData> => {
+    const { getStore, getActiveRun, getRunById, setActiveRun } = await import("../server/storage");
+    const store = await getStore();
+    let activeRun: PersistedRun | null = null;
+    if (data.runId) {
+      activeRun = (await getRunById(data.runId)) ?? null;
+      if (activeRun) {
+        await setActiveRun(activeRun.id);
+      }
+    }
+    if (!activeRun) {
+      activeRun = (await getActiveRun()) ?? store.runs[0] ?? null;
+    }
+
+    const runs: WorkflowRunSummary[] = store.runs.map((r) => ({
+      id: r.id,
+      requestId: r.requestId,
+      runNumber: r.runNumber,
+      requestName: r.requestName || "Custom Request",
+      originalPrompt: r.originalPrompt || "",
+      createdAt: r.createdAt || "",
+      validated: r.quality?.validated ?? 0,
+      unique: r.quality?.unique ?? 0,
+    }));
+
+    return { activeRun, runs };
+  });
+
 import type { TaskItem } from "../components/dashboard-ui";
 
 // ─── Get History Data ─────────────────────────────────────────────────────────
@@ -48,16 +95,25 @@ export const getHistoryDataFn = createServerFn({ method: "GET" }).handler(
       .sort((a, b) => b.runNumber - a.runNumber);
 
     const allRequests = store.requests.map((req) => {
-      const latestRun = store.runs.find((r) => r.id === req.activeRunId) ?? store.runs.find((r) => r.requestId === req.id);
+      const latestRun =
+        store.runs.find((r) => r.id === req.activeRunId) ??
+        store.runs.find((r) => r.requestId === req.id);
       return {
         id: req.id,
         runId: latestRun?.id,
         name: req.name,
         prompt: req.prompt,
-        status: req.status === "completed" ? "Complete" : req.status === "running" ? "Running" : "Needs review",
+        status:
+          req.status === "completed"
+            ? "Complete"
+            : req.status === "running"
+              ? "Running"
+              : "Needs review",
         updated: req.updatedAt,
         records: latestRun?.records.length ?? 0,
-        quality: latestRun ? Math.round((latestRun.quality.validated / Math.max(1, latestRun.quality.unique)) * 100) : 0,
+        quality: latestRun
+          ? Math.round((latestRun.quality.validated / Math.max(1, latestRun.quality.unique)) * 100)
+          : 0,
         progress: req.status === "completed" ? 100 : req.status === "running" ? 60 : 0,
       };
     });
@@ -98,12 +154,12 @@ export const getOverviewDataFn = createServerFn({ method: "GET" }).handler(
       ? Math.round((activeRun.quality.validated / Math.max(1, activeRun.quality.unique)) * 100)
       : 0;
 
-    const distinctSources = new Set(
-      store.runs.flatMap((r) => r.sources.map((s) => s.name)),
-    );
+    const distinctSources = new Set(store.runs.flatMap((r) => r.sources.map((s) => s.name)));
 
     const tasks = store.requests.map((req) => {
-      const run = store.runs.find((r) => r.id === req.activeRunId) ?? store.runs.find((r) => r.requestId === req.id);
+      const run =
+        store.runs.find((r) => r.id === req.activeRunId) ??
+        store.runs.find((r) => r.requestId === req.id);
       return {
         id: req.id,
         runId: run?.id,
@@ -111,7 +167,9 @@ export const getOverviewDataFn = createServerFn({ method: "GET" }).handler(
         status: (req.status === "running" ? "Running" : "Complete") as "Running" | "Complete",
         progress: req.status === "running" ? 60 : 100,
         records: run?.quality.unique ?? 0,
-        quality: run ? Math.round((run.quality.validated / Math.max(1, run.quality.unique)) * 100) : 0,
+        quality: run
+          ? Math.round((run.quality.validated / Math.max(1, run.quality.unique)) * 100)
+          : 0,
         updated: req.updatedAt,
       };
     });
@@ -123,12 +181,16 @@ export const getOverviewDataFn = createServerFn({ method: "GET" }).handler(
       sourceCoverage: distinctSources.size,
       activeRun,
       attention: {
-        needingVerification: activeRun ? activeRun.records.filter((r) => r.status === "Review").length : 0,
+        needingVerification: activeRun
+          ? activeRun.records.filter((r) => r.status === "Review").length
+          : 0,
         conflicts: activeRun ? activeRun.quality.conflicts : 0,
         incomplete: activeRun ? activeRun.quality.incomplete : 0,
         coveragePercent: activeRun
           ? Math.round(
-              (activeRun.records.flatMap((r) => r.evidence).filter((e) => e.verification !== "Needs verification").length /
+              (activeRun.records
+                .flatMap((r) => r.evidence)
+                .filter((e) => e.verification !== "Needs verification").length /
                 Math.max(1, activeRun.records.flatMap((r) => r.evidence).length)) *
                 100,
             )
@@ -141,11 +203,16 @@ export const getOverviewDataFn = createServerFn({ method: "GET" }).handler(
 
 // ─── Rerun Workflow ───────────────────────────────────────────────────────────
 export const rerunWorkflowFn = createServerFn({ method: "POST" })
-  .validator((input: unknown) =>
-    z.object({ requestId: z.string().optional() }).parse(input),
-  )
+  .validator((input: unknown) => z.object({ requestId: z.string().optional() }).parse(input))
   .handler(
-    async ({ data }): Promise<{ success: boolean; newRun?: PersistedRun; comparison?: RunComparison; error?: string }> => {
+    async ({
+      data,
+    }): Promise<{
+      success: boolean;
+      newRun?: PersistedRun;
+      comparison?: RunComparison;
+      error?: string;
+    }> => {
       try {
         const { rerunWorkflow, getActiveRun, getStore } = await import("../server/storage");
         let reqId = data.requestId;

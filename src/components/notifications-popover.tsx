@@ -1,18 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import {
-  AlertTriangle,
-  Bell,
-  CheckCircle2,
-  Clock3,
-  HelpCircle,
-} from "lucide-react";
+import { AlertTriangle, Bell, CheckCircle2, Clock3, HelpCircle } from "lucide-react";
 import { getHistoryDataFn, type HistoryData } from "@/lib/storage-fns";
 
 export type NotificationItem = {
@@ -194,7 +184,9 @@ export function NotificationsPopover() {
                     <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className={`text-xs ${isUnread ? "font-semibold text-foreground" : "font-medium text-muted-foreground"}`}>
+                    <p
+                      className={`text-xs ${isUnread ? "font-semibold text-foreground" : "font-medium text-muted-foreground"}`}
+                    >
                       {n.title}
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2 leading-4">

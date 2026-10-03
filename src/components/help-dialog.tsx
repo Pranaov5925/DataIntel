@@ -37,7 +37,8 @@ export function HelpDialog({
             </DialogTitle>
           </div>
           <DialogDescription className="text-xs text-muted-foreground">
-            Reference guide for autonomous web collection, qualification rules, and evidence verification.
+            Reference guide for autonomous web collection, qualification rules, and evidence
+            verification.
           </DialogDescription>
         </DialogHeader>
 
@@ -46,7 +47,10 @@ export function HelpDialog({
           <section className="space-y-2 rounded-md border border-border bg-muted/30 p-4">
             <h3 className="font-semibold text-foreground">What is DataIntel (PS01)?</h3>
             <p className="leading-5 text-muted-foreground">
-              DataIntel is an AI-powered data intelligence platform. It converts free-form natural language requirements into structured, deterministic collection workflows, automatically gathers multi-source web data, evaluates hard qualification rules, and preserves rigorous source provenance.
+              DataIntel is an AI-powered data intelligence platform. It converts free-form natural
+              language requirements into structured, deterministic collection workflows,
+              automatically gathers multi-source web data, evaluates hard qualification rules, and
+              preserves rigorous source provenance.
             </p>
           </section>
 
@@ -93,7 +97,8 @@ export function HelpDialog({
                 <div>
                   <strong className="block text-success font-semibold">Qualified</strong>
                   <p className="mt-0.5 text-muted-foreground">
-                    All user constraints (e.g. price limit, range, size, location) are verified from collected source evidence.
+                    All user constraints (e.g. price limit, range, size, location) are verified from
+                    collected source evidence.
                   </p>
                 </div>
               </div>
@@ -103,7 +108,8 @@ export function HelpDialog({
                 <div>
                   <strong className="block text-warning font-semibold">Needs verification</strong>
                   <p className="mt-0.5 text-muted-foreground">
-                    The record is relevant to the query, but at least one hard constraint value was missing or not disclosed in collected sources.
+                    The record is relevant to the query, but at least one hard constraint value was
+                    missing or not disclosed in collected sources.
                   </p>
                 </div>
               </div>
@@ -113,7 +119,8 @@ export function HelpDialog({
                 <div>
                   <strong className="block text-destructive font-semibold">Excluded</strong>
                   <p className="mt-0.5 text-muted-foreground">
-                    Verified source evidence shows that the candidate violates a hard qualification rule (e.g., price exceeds ₹50 lakh limit).
+                    Verified source evidence shows that the candidate violates a hard qualification
+                    rule (e.g., price exceeds ₹50 lakh limit).
                   </p>
                 </div>
               </div>
@@ -123,7 +130,8 @@ export function HelpDialog({
                 <div>
                   <strong className="block text-destructive font-semibold">Conflict</strong>
                   <p className="mt-0.5 text-muted-foreground">
-                    Two or more credible sources provide conflicting values for an important attribute, preserved for human inspection.
+                    Two or more credible sources provide conflicting values for an important
+                    attribute, preserved for human inspection.
                   </p>
                 </div>
               </div>
@@ -138,7 +146,8 @@ export function HelpDialog({
                 <span>Source Provenance</span>
               </div>
               <p className="mt-1.5 text-muted-foreground leading-4">
-                Every extracted attribute is linked to the original page URL and contextual snippet text from which it was extracted.
+                Every extracted attribute is linked to the original page URL and contextual snippet
+                text from which it was extracted.
               </p>
             </div>
             <div className="rounded border border-border p-3">
@@ -147,7 +156,8 @@ export function HelpDialog({
                 <span>Run Isolation</span>
               </div>
               <p className="mt-1.5 text-muted-foreground leading-4">
-                Every workflow execution is an immutable research snapshot. Historical runs remain preserved and independently accessible.
+                Every workflow execution is an immutable research snapshot. Historical runs remain
+                preserved and independently accessible.
               </p>
             </div>
           </section>

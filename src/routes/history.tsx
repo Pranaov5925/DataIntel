@@ -67,7 +67,9 @@ function HistoryPage() {
       });
 
       if (res.success && res.newRun) {
-        setRerunMessage(`Run #${res.newRun.runNumber} created successfully! +${res.newRun.quality.validated} validated records.`);
+        setRerunMessage(
+          `Run #${res.newRun.runNumber} created successfully! +${res.newRun.quality.validated} validated records.`,
+        );
         await loadHistory();
       } else {
         setRerunMessage(res.error ?? "Failed to rerun workflow.");
@@ -142,117 +144,115 @@ function HistoryPage() {
             <p className="mt-1 text-xs leading-5">{prompt}</p>
           </div>
           <div className="p-5">
-            {requestRuns
-              ? requestRuns.map((run, index) => {
-                  const isCurrent = run.id === activeRun?.id;
-                  const trigger =
-                    run.runNumber > 1
-                      ? run.comparison
-                        ? "Workflow Rerun"
-                        : "Adaptive retry"
-                      : "Initial collection";
+            {requestRuns ? (
+              requestRuns.map((run, index) => {
+                const isCurrent = run.id === activeRun?.id;
+                const trigger =
+                  run.runNumber > 1
+                    ? run.comparison
+                      ? "Workflow Rerun"
+                      : "Adaptive retry"
+                    : "Initial collection";
 
-                  const change =
-                    run.adaptiveSummary ||
-                    run.comparison?.summary ||
-                    "Executed collection blueprint across permitted sources";
+                const change =
+                  run.adaptiveSummary ||
+                  run.comparison?.summary ||
+                  "Executed collection blueprint across permitted sources";
 
-                  const outcome = run.comparison
-                    ? `${run.comparison.validatedDelta >= 0 ? `+${run.comparison.validatedDelta}` : run.comparison.validatedDelta} validated records`
-                    : `${run.quality.validated} validated records`;
+                const outcome = run.comparison
+                  ? `${run.comparison.validatedDelta >= 0 ? `+${run.comparison.validatedDelta}` : run.comparison.validatedDelta} validated records`
+                  : `${run.quality.validated} validated records`;
 
-                  return (
-                    <div
-                      key={run.id}
-                      className="relative flex gap-4 pb-7 last:pb-0 after:absolute after:bottom-0 after:left-4 after:top-9 after:w-px after:bg-border last:after:hidden"
-                    >
-                      <span className="z-10 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-[11px] font-bold">
-                        v{run.runNumber}
-                      </span>
-                      <div className="min-w-0 flex-1 border border-border p-4">
-                        <div className="flex flex-col justify-between gap-2 sm:flex-row">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold">
-                                {trigger}
-                              </span>
-                              {isCurrent && (
-                                <span className="text-[10px] font-semibold text-primary">Current</span>
-                              )}
-                            </div>
-                            <p className="mt-2 text-sm font-medium">{change}</p>
-                          </div>
-                          <span className="text-[10px] text-muted-foreground">{run.completedAt || run.createdAt}</span>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs">
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                            <span className="flex items-center gap-2 text-success font-medium">
-                              <CheckCircle2 className="size-3.5" />
-                              {outcome}
-                            </span>
-                            <span className="text-muted-foreground">{run.quality.unique} unique</span>
-                            <span className="text-muted-foreground">{run.sources.length} sources</span>
-                            <span className="text-muted-foreground">{run.quality.conflicts} conflicts</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <button
-                              onClick={() => navigate({ to: "/workflow", search: { runId: run.id } })}
-                              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
-                            >
-                              Workflow
-                            </button>
-                            <button
-                              onClick={() => navigate({ to: "/evidence", search: { runId: run.id } })}
-                              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
-                            >
-                              Evidence
-                            </button>
-                            <button
-                              onClick={() => handleSelectRun(run)}
-                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
-                            >
-                              Inspect dataset <ExternalLink className="size-3" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              : mockHistory.map((item, index) => (
+                return (
                   <div
-                    key={item.version}
+                    key={run.id}
                     className="relative flex gap-4 pb-7 last:pb-0 after:absolute after:bottom-0 after:left-4 after:top-9 after:w-px after:bg-border last:after:hidden"
                   >
                     <span className="z-10 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-[11px] font-bold">
-                      {item.version}
+                      v{run.runNumber}
                     </span>
                     <div className="min-w-0 flex-1 border border-border p-4">
                       <div className="flex flex-col justify-between gap-2 sm:flex-row">
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold">
-                              {item.trigger}
+                              {trigger}
                             </span>
-                            {index === 0 && (
-                              <span className="text-[10px] font-semibold text-primary">Current</span>
+                            {isCurrent && (
+                              <span className="text-[10px] font-semibold text-primary">
+                                Current
+                              </span>
                             )}
                           </div>
-                          <p className="mt-2 text-sm font-medium">{item.change}</p>
+                          <p className="mt-2 text-sm font-medium">{change}</p>
                         </div>
-                        <span className="text-[10px] text-muted-foreground">{item.time}</span>
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border pt-3 text-xs">
-                        <span className="flex items-center gap-2 text-success font-medium">
-                          <CheckCircle2 className="size-3.5" />
-                          {item.outcome}
+                        <span className="text-[10px] text-muted-foreground">
+                          {run.completedAt || run.createdAt}
                         </span>
-                        <span className="text-muted-foreground">{item.records}</span>
-                        <span className="text-muted-foreground">{item.sources} sources</span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs">
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                          <span className="flex items-center gap-2 text-success font-medium">
+                            <CheckCircle2 className="size-3.5" />
+                            {outcome}
+                          </span>
+                          <span className="text-muted-foreground">{run.quality.unique} unique</span>
+                          <span className="text-muted-foreground">
+                            {run.sources.length} sources
+                          </span>
+                          <span className="text-muted-foreground">
+                            {run.quality.conflicts} conflicts
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await setActiveRunFn({ data: { runId: run.id } });
+                              } catch {
+                                // ignore
+                              }
+                              navigate({ to: "/workflow", search: { runId: run.id } });
+                            }}
+                            className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                          >
+                            Workflow
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await setActiveRunFn({ data: { runId: run.id } });
+                              } catch {
+                                // ignore
+                              }
+                              navigate({ to: "/evidence", search: { runId: run.id } });
+                            }}
+                            className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                          >
+                            Evidence
+                          </button>
+                          <button
+                            onClick={() => handleSelectRun(run)}
+                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                          >
+                            Inspect dataset <ExternalLink className="size-3" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-                ))}
+                );
+              })
+            ) : (
+              <div className="py-12 text-center">
+                <GitBranch className="mx-auto size-8 text-muted-foreground/40 mb-3" />
+                <p className="text-sm font-semibold">No collection runs yet</p>
+                <p className="mt-1 text-xs text-muted-foreground max-w-sm mx-auto">
+                  Execute a research workflow to begin recording versioned collection runs and
+                  adaptive decisions.
+                </p>
+              </div>
+            )}
           </div>
         </section>
 
@@ -283,15 +283,25 @@ function HistoryPage() {
             {activeRun?.comparison && (
               <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border pt-4 text-xs">
                 <div>
-                  <span className="text-muted-foreground block text-[10px] uppercase">Records delta</span>
+                  <span className="text-muted-foreground block text-[10px] uppercase">
+                    Records delta
+                  </span>
                   <span className="font-semibold text-foreground">
-                    {activeRun.comparison.recordsDelta >= 0 ? `+${activeRun.comparison.recordsDelta}` : activeRun.comparison.recordsDelta} records
+                    {activeRun.comparison.recordsDelta >= 0
+                      ? `+${activeRun.comparison.recordsDelta}`
+                      : activeRun.comparison.recordsDelta}{" "}
+                    records
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-[10px] uppercase">Conflicts</span>
+                  <span className="text-muted-foreground block text-[10px] uppercase">
+                    Conflicts
+                  </span>
                   <span className="font-semibold text-foreground">
-                    {activeRun.comparison.conflictsDelta <= 0 ? `${activeRun.comparison.conflictsDelta}` : `+${activeRun.comparison.conflictsDelta}`} resolved
+                    {activeRun.comparison.conflictsDelta <= 0
+                      ? `${activeRun.comparison.conflictsDelta}`
+                      : `+${activeRun.comparison.conflictsDelta}`}{" "}
+                    resolved
                   </span>
                 </div>
               </div>

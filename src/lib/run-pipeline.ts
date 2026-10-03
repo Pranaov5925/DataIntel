@@ -21,12 +21,25 @@ const inputSchema = z.object({
 
 export type RunPipelineInput = z.infer<typeof inputSchema>;
 export type RunPipelineResult =
-  | { success: true; data: PipelineResult; runId: string }
-  | { success: false; error: string };
+  { success: true; data: PipelineResult; runId: string } | { success: false; error: string };
 
 export const runPipelineFn = createServerFn({ method: "POST" })
   .validator((input: unknown) => inputSchema.parse(input))
   .handler(async ({ data }): Promise<RunPipelineResult> => {
     const { runMistralPipeline } = await import("../server/pipeline-runner");
     return runMistralPipeline(data);
+  });
+
+export const startPipelineRunFn = createServerFn({ method: "POST" })
+  .validator((input: unknown) => inputSchema.parse(input))
+  .handler(async ({ data }): Promise<{ success: boolean; runId: string; error?: string }> => {
+    const { startPipelineRun } = await import("../server/pipeline-runner");
+    return startPipelineRun(data);
+  });
+
+export const getPipelineProgressFn = createServerFn({ method: "POST" })
+  .validator((input: unknown) => z.object({ runId: z.string() }).parse(input))
+  .handler(async ({ data }) => {
+    const { getPipelineProgress } = await import("../server/pipeline-runner");
+    return getPipelineProgress(data.runId);
   });

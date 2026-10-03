@@ -4,13 +4,18 @@ import {
   ArrowRight,
   Brain,
   Check,
+  CheckCircle2,
   Circle,
   Clock3,
+  Database,
+  FileSearch,
   Loader2,
   Play,
   Plus,
   RotateCcw,
   Sparkles,
+  Waypoints,
+  X,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -22,10 +27,14 @@ import {
   workflowStages as defaultStages,
 } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-import { useActiveWorkflowPlan } from "@/lib/workflow-store";
-import { runPipelineFn } from "@/lib/run-pipeline";
-import { setPipelineResult } from "@/lib/pipeline-store";
-import { getActiveRunFn, getRunByIdFn, rerunWorkflowFn } from "@/lib/storage-fns";
+import { useActiveWorkflowPlan, setActiveWorkflowPlan } from "@/lib/workflow-store";
+import { startPipelineRunFn, getPipelineProgressFn } from "@/lib/run-pipeline";
+import {
+  getWorkflowDataFn,
+  setActiveRunFn,
+  rerunWorkflowFn,
+  type WorkflowRunSummary,
+} from "@/lib/storage-fns";
 import type { PersistedRun } from "@/lib/storage-schema";
 
 export type WorkflowSearch = {
@@ -62,249 +71,527 @@ export function WorkflowPage() {
   const explicitRunId = search?.runId;
   const plan = useActiveWorkflowPlan();
   const navigate = useNavigate();
+
   const [running, setRunning] = useState(false);
   const [pipelineError, setPipelineError] = useState<string | null>(null);
   const [persistedRun, setPersistedRun] = useState<PersistedRun | null>(null);
+  const [availableRuns, setAvailableRuns] = useState<WorkflowRunSummary[]>([]);
+  const [rerunSuccess, setRerunSuccess] = useState<{
+    runId: string;
+    runNumber: number;
+    validatedCount: number;
+    validatedDelta: number;
+    recordsDelta: number;
+  } | null>(null);
 
+  const [pipelineProgress, setPipelineProgress] = useState<{
+    state: string;
+    percent: number;
+    stageName: string;
+    detail: string;
+  } | null>(null);
+
+  // Load workflow run data
   useEffect(() => {
     let mounted = true;
-    if (explicitRunId) {
-      getRunByIdFn({ data: { runId: explicitRunId } })
-        .then((run) => {
-          if (mounted && run) setPersistedRun(run);
-        })
-        .catch((err) => console.error("Failed to load run by id:", err));
-    } else {
-      getActiveRunFn()
-        .then((run) => {
-          if (mounted && run) setPersistedRun(run);
-        })
-        .catch((err) => console.error("Failed to load active run:", err));
-    }
+    getWorkflowDataFn({ data: { runId: explicitRunId } })
+      .then((res) => {
+        if (mounted) {
+          if (res.activeRun) setPersistedRun(res.activeRun);
+          setAvailableRuns(res.runs);
+        }
+      })
+      .catch((err) => console.error("Failed to load workflow data:", err));
+
     return () => {
       mounted = false;
     };
   }, [explicitRunId]);
 
-  const activePlan = explicitRunId ? null : plan;
+  // If a pending plan was already executed into persistedRun, clear it from session storage
+  useEffect(() => {
+    if (plan && persistedRun && (plan.id === persistedRun.requestId || explicitRunId)) {
+      setActiveWorkflowPlan(null);
+    }
+  }, [plan, persistedRun, explicitRunId]);
+
+  // Determine whether we are previewing an unexecuted plan or viewing an executed workflow
+  const isPendingPlan =
+    !explicitRunId && Boolean(plan) && (!persistedRun || plan?.id !== persistedRun.requestId);
+  const activePlan = isPendingPlan ? plan : null;
+
   const title = activePlan
     ? activePlan.title
     : persistedRun
       ? persistedRun.requestName
       : "Data Collection Workflow";
+
   const eyebrow = running
     ? `Executing · ${activePlan?.id ?? persistedRun?.id ?? "Pipeline"}`
-    : activePlan
+    : isPendingPlan && activePlan
       ? `Ready to execute · ${activePlan.id}`
       : persistedRun
         ? `Run · ${persistedRun.id}`
         : "Data collection workflow";
+
   const description = activePlan
     ? activePlan.request
     : persistedRun
       ? persistedRun.originalPrompt
       : DEMO_REQUEST;
 
-  async function handleRunPipeline() {
-    if (running) return;
+  // Execute an unexecuted pending plan
+  async function handleRunPendingPlan() {
+    if (!activePlan || running) return;
 
-    if (activePlan) {
-      setRunning(true);
-      setPipelineError(null);
+    setRunning(true);
+    setPipelineError(null);
+    setRerunSuccess(null);
+    setPipelineProgress({
+      state: "QUEUED",
+      percent: 5,
+      stageName: "Queued",
+      detail: "Initializing research pipeline...",
+    });
 
-      try {
-        const res = await runPipelineFn({
-          data: {
-            planId: activePlan.id,
-            title: activePlan.title,
-            request: activePlan.request,
-            understanding: activePlan.understanding,
-            requiredFields: Array.isArray(activePlan.understanding.requiredFields)
-              ? activePlan.understanding.requiredFields
-              : [String(activePlan.understanding.requiredFields)],
-            geography: activePlan.understanding.geography,
-            industry: activePlan.understanding.industry,
-            target: activePlan.understanding.target,
-            constraints: Array.isArray(activePlan.understanding.constraints)
-              ? activePlan.understanding.constraints
-              : [String(activePlan.understanding.constraints)],
-            freshness: activePlan.understanding.freshness,
-            searchIntent: activePlan.understanding.searchIntent,
-            stages: activePlan.stages,
-          },
-        });
+    try {
+      const startRes = await startPipelineRunFn({
+        data: {
+          planId: activePlan.id,
+          title: activePlan.title,
+          request: activePlan.request,
+          understanding: activePlan.understanding,
+          requiredFields: Array.isArray(activePlan.understanding.requiredFields)
+            ? activePlan.understanding.requiredFields
+            : [String(activePlan.understanding.requiredFields)],
+          geography: activePlan.understanding.geography,
+          industry: activePlan.understanding.industry,
+          target: activePlan.understanding.target,
+          constraints: Array.isArray(activePlan.understanding.constraints)
+            ? activePlan.understanding.constraints
+            : [String(activePlan.understanding.constraints)],
+          freshness: activePlan.understanding.freshness,
+          searchIntent: activePlan.understanding.searchIntent,
+          stages: activePlan.stages,
+        },
+      });
 
-        if (!res.success) {
-          setPipelineError(res.error ?? "Pipeline execution failed.");
-          setRunning(false);
-          return;
-        }
-
-        setPipelineResult(res.data);
-        await navigate({ to: "/datasets", search: { runId: res.runId } });
-      } catch (err: unknown) {
-        setPipelineError(
-          err instanceof Error ? err.message : "An unexpected error occurred during pipeline execution.",
-        );
+      if (!startRes.success || !startRes.runId) {
+        setPipelineError(startRes.error ?? "Failed to initialize pipeline.");
         setRunning(false);
+        return;
       }
-    } else if (persistedRun) {
-      setRunning(true);
-      setPipelineError(null);
-      try {
-        const res = await rerunWorkflowFn({
-          data: {
-            requestId: persistedRun.requestId,
-          },
-        });
-        if (res.success && res.newRun) {
-          setPersistedRun(res.newRun);
-          await navigate({ to: "/datasets", search: { runId: res.newRun.id } });
-        } else {
-          setPipelineError(res.error ?? "Failed to rerun workflow.");
+
+      const runId = startRes.runId;
+
+      // Poll progress until completion
+      const pollTimer = setInterval(async () => {
+        try {
+          const prog = await getPipelineProgressFn({ data: { runId } });
+          if (!prog) return;
+
+          setPipelineProgress({
+            state: prog.state,
+            percent: prog.percent,
+            stageName: prog.stageName,
+            detail: prog.detail,
+          });
+
+          if (prog.state === "COMPLETED") {
+            clearInterval(pollTimer);
+            setActiveWorkflowPlan(null);
+            await setActiveRunFn({ data: { runId } });
+            const fresh = await getWorkflowDataFn({ data: { runId } });
+            if (fresh.activeRun) setPersistedRun(fresh.activeRun);
+            setAvailableRuns(fresh.runs);
+            setRunning(false);
+            setRerunSuccess({
+              runId,
+              runNumber: fresh.activeRun?.runNumber ?? 1,
+              validatedCount: fresh.activeRun?.quality?.validated ?? 0,
+              validatedDelta: 0,
+              recordsDelta: fresh.activeRun?.quality?.unique ?? 0,
+            });
+            await navigate({ to: "/datasets", search: { runId } });
+          } else if (prog.state === "FAILED" || prog.state === "CANCELLED") {
+            clearInterval(pollTimer);
+            setRunning(false);
+            setPipelineError(prog.error || prog.detail || "Pipeline execution failed.");
+          }
+        } catch (pollErr) {
+          console.warn("Progress polling error:", pollErr);
         }
-      } catch (err: unknown) {
-        setPipelineError(err instanceof Error ? err.message : "Rerun error");
-      } finally {
-        setRunning(false);
+      }, 1000);
+    } catch (err: unknown) {
+      setPipelineError(
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred during pipeline execution.",
+      );
+      setRunning(false);
+    }
+  }
+
+  // Rerun an existing workflow to collect an updated dataset
+  async function handleRerunWorkflow() {
+    if (!persistedRun || running) return;
+
+    setRunning(true);
+    setPipelineError(null);
+    setRerunSuccess(null);
+    setPipelineProgress({
+      state: "PLANNING",
+      percent: 15,
+      stageName: "Rerun Planning",
+      detail: `Planning workflow rerun for "${persistedRun.requestName}"...`,
+    });
+
+    try {
+      const progressSteps = [
+        {
+          state: "RETRIEVING",
+          percent: 40,
+          stageName: "Web Search",
+          detail: "Querying live web sources for fresh candidate records...",
+        },
+        {
+          state: "EXTRACTING",
+          percent: 65,
+          stageName: "Entity Extraction",
+          detail: "Extracting attributes, normalizing values, and capturing citations...",
+        },
+        {
+          state: "QUALIFYING",
+          percent: 85,
+          stageName: "Constraint Verification",
+          detail: "Applying qualification rules and computing quality deltas...",
+        },
+      ];
+
+      let stepIdx = 0;
+      const progressInterval = setInterval(() => {
+        if (stepIdx < progressSteps.length) {
+          const p = progressSteps[stepIdx]!;
+          setPipelineProgress({
+            state: p.state,
+            percent: p.percent,
+            stageName: p.stageName,
+            detail: p.detail,
+          });
+          stepIdx++;
+        }
+      }, 1000);
+
+      const res = await rerunWorkflowFn({
+        data: {
+          requestId: persistedRun.requestId,
+        },
+      });
+
+      clearInterval(progressInterval);
+
+      if (res.success && res.newRun) {
+        setPersistedRun(res.newRun);
+        await setActiveRunFn({ data: { runId: res.newRun.id } });
+        const fresh = await getWorkflowDataFn({ data: { runId: res.newRun.id } });
+        setAvailableRuns(fresh.runs);
+        setRerunSuccess({
+          runId: res.newRun.id,
+          runNumber: res.newRun.runNumber,
+          validatedCount: res.newRun.quality?.validated ?? 0,
+          validatedDelta: res.comparison?.validatedDelta ?? 0,
+          recordsDelta: res.comparison?.recordsDelta ?? 0,
+        });
+        setPipelineProgress({
+          state: "COMPLETED",
+          percent: 100,
+          stageName: "Dataset Updated",
+          detail: `Workflow rerun complete. Run v${res.newRun.runNumber} is published.`,
+        });
+        await navigate({ to: "/workflow", search: { runId: res.newRun.id } });
+      } else {
+        setPipelineError(res.error ?? "Failed to rerun workflow.");
+      }
+    } catch (err: unknown) {
+      setPipelineError(err instanceof Error ? err.message : "Rerun error occurred");
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  function formatConstraintDisplay(c: unknown): string {
+    if (!c) return "";
+    if (typeof c === "string") return c;
+    if (typeof c === "object" && c !== null) {
+      const sc = c as {
+        field?: string;
+        operator?: string;
+        value?: string;
+        valueTo?: string;
+        unit?: string;
+      };
+      const fieldName = (sc.field || "Field")
+        .replace(/_/g, " ")
+        .replace(/\b\w/g, (l) => l.toUpperCase());
+      const op = sc.operator;
+      const unit = sc.unit ? ` ${sc.unit}` : "";
+
+      let displayVal = sc.value || "";
+      if (sc.unit === "INR" || fieldName.toLowerCase().includes("price")) {
+        const num = parseFloat(sc.value || "0");
+        if (num >= 10000000) {
+          displayVal = `₹${(num / 10000000).toFixed(1).replace(/\.0$/, "")} Cr`;
+        } else if (num >= 100000) {
+          displayVal = `₹${(num / 100000).toFixed(1).replace(/\.0$/, "")} lakh`;
+        }
+      }
+
+      if (op === "between") {
+        return `${fieldName}: ${sc.value}–${sc.valueTo || "—"}${unit}`;
+      }
+      if (op === "less_than_or_equal") {
+        return `${fieldName}: <= ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
+      }
+      if (op === "less_than") {
+        return `${fieldName}: < ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
+      }
+      if (op === "greater_than_or_equal") {
+        return `${fieldName}: >= ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
+      }
+      if (op === "greater_than") {
+        return `${fieldName}: > ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
+      }
+      if (op === "contains") {
+        return `${fieldName}: contains "${sc.value}"`;
+      }
+      if (op === "equals") {
+        return `${fieldName}: "${sc.value}"`;
+      }
+      if (sc.value) {
+        return `${fieldName}: ${sc.value}${unit}`;
       }
     }
+    return String(c);
   }
 
-function formatConstraintDisplay(c: unknown): string {
-  if (!c) return "";
-  if (typeof c === "string") return c;
-  if (typeof c === "object" && c !== null) {
-    const sc = c as {
-      field?: string;
-      operator?: string;
-      value?: string;
-      valueTo?: string;
-      unit?: string;
-    };
-    const fieldName = (sc.field || "Field")
-      .replace(/_/g, " ")
-      .replace(/\b\w/g, (l) => l.toUpperCase());
-    const op = sc.operator;
-    const unit = sc.unit ? ` ${sc.unit}` : "";
-
-    let displayVal = sc.value || "";
-    if (sc.unit === "INR" || fieldName.toLowerCase().includes("price")) {
-      const num = parseFloat(sc.value || "0");
-      if (num >= 10000000) {
-        displayVal = `₹${(num / 10000000).toFixed(1).replace(/\.0$/, "")} Cr`;
-      } else if (num >= 100000) {
-        displayVal = `₹${(num / 100000).toFixed(1).replace(/\.0$/, "")} lakh`;
-      }
+  function renderConstraintsText(understanding: unknown): string {
+    const u = understanding as
+      { structuredConstraints?: unknown[]; constraints?: unknown[] } | null | undefined;
+    if (Array.isArray(u?.structuredConstraints) && u.structuredConstraints.length > 0) {
+      return u.structuredConstraints.map(formatConstraintDisplay).join("; ");
     }
-
-    if (op === "between") {
-      return `${fieldName}: ${sc.value}–${sc.valueTo || "—"}${unit}`;
+    if (Array.isArray(u?.constraints) && u.constraints.length > 0) {
+      return u.constraints.map(formatConstraintDisplay).join("; ");
     }
-    if (op === "less_than_or_equal") {
-      return `${fieldName}: <= ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
+    if (u?.constraints) {
+      return formatConstraintDisplay(u.constraints);
     }
-    if (op === "less_than") {
-      return `${fieldName}: < ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
-    }
-    if (op === "greater_than_or_equal") {
-      return `${fieldName}: >= ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
-    }
-    if (op === "greater_than") {
-      return `${fieldName}: > ${displayVal}${unit && !displayVal.includes(unit) ? unit : ""}`;
-    }
-    if (op === "contains") {
-      return `${fieldName}: contains "${sc.value}"`;
-    }
-    if (op === "equals") {
-      return `${fieldName}: "${sc.value}"`;
-    }
-    if (sc.value) {
-      return `${fieldName}: ${sc.value}${unit}`;
-    }
+    return "None";
   }
-  return String(c);
-}
 
-function renderConstraintsText(understanding: any): string {
-  if (Array.isArray(understanding?.structuredConstraints) && understanding.structuredConstraints.length > 0) {
-    return understanding.structuredConstraints.map(formatConstraintDisplay).join("; ");
-  }
-  if (Array.isArray(understanding?.constraints) && understanding.constraints.length > 0) {
-    return understanding.constraints.map(formatConstraintDisplay).join("; ");
-  }
-  if (understanding?.constraints) {
-    return formatConstraintDisplay(understanding.constraints);
-  }
-  return "None";
-}
-
-  const understandingItems: [string, string][] = plan
-    ? [
-        ["Objective", plan.understanding.objective],
-        ["Target", plan.understanding.target],
-        ["Geography", plan.understanding.geography],
-        ["Industry", plan.understanding.industry],
-        ["Constraints", renderConstraintsText(plan.understanding)],
-        [
-          "Required fields",
-          Array.isArray(plan.understanding.requiredFields)
-            ? plan.understanding.requiredFields.join(", ")
-            : String(plan.understanding.requiredFields ?? "—"),
-        ],
-        ["Freshness", plan.understanding.freshness],
-        ["Search intent", plan.understanding.searchIntent],
-      ]
-    : persistedRun
+  // Derive understanding items based on current active target
+  const understandingItems: [string, string][] =
+    isPendingPlan && activePlan
       ? [
-          ["Objective", persistedRun.understanding.objective],
-          ["Target", persistedRun.understanding.target],
-          ["Geography", persistedRun.understanding.geography],
-          ["Industry", persistedRun.understanding.industry],
-          ["Constraints", renderConstraintsText(persistedRun.understanding)],
+          ["Objective", activePlan.understanding.objective],
+          ["Target", activePlan.understanding.target],
+          ["Geography", activePlan.understanding.geography],
+          ["Industry", activePlan.understanding.industry],
+          ["Constraints", renderConstraintsText(activePlan.understanding)],
           [
             "Required fields",
-            Array.isArray(persistedRun.understanding.requiredFields)
-              ? persistedRun.understanding.requiredFields.join(", ")
-              : String(persistedRun.understanding.requiredFields ?? "—"),
+            Array.isArray(activePlan.understanding.requiredFields)
+              ? activePlan.understanding.requiredFields.join(", ")
+              : String(activePlan.understanding.requiredFields ?? "—"),
           ],
-          ["Freshness", persistedRun.understanding.freshness],
-          ["Search intent", persistedRun.understanding.searchIntent],
+          ["Freshness", activePlan.understanding.freshness],
+          ["Search intent", activePlan.understanding.searchIntent],
         ]
-      : (defaultUnderstanding as unknown as [string, string][]);
+      : persistedRun
+        ? [
+            ["Objective", persistedRun.understanding.objective],
+            ["Target", persistedRun.understanding.target],
+            ["Geography", persistedRun.understanding.geography],
+            ["Industry", persistedRun.understanding.industry],
+            ["Constraints", renderConstraintsText(persistedRun.understanding)],
+            [
+              "Required fields",
+              Array.isArray(persistedRun.understanding.requiredFields)
+                ? persistedRun.understanding.requiredFields.join(", ")
+                : String(persistedRun.understanding.requiredFields ?? "—"),
+            ],
+            ["Freshness", persistedRun.understanding.freshness],
+            ["Search intent", persistedRun.understanding.searchIntent],
+          ]
+        : (defaultUnderstanding as unknown as [string, string][]);
 
-  const stages = plan
-    ? plan.stages
-    : persistedRun
-      ? persistedRun.executedStages.map((s) => ({
-          name: s.name,
-          detail: s.detail,
-          status: s.status,
-          count: s.count,
-        }))
-      : defaultStages;
+  // Derive blueprint/executed stages
+  const stages =
+    isPendingPlan && activePlan
+      ? activePlan.stages
+      : persistedRun
+        ? persistedRun.executedStages.map((s) => ({
+            name: s.name,
+            detail: s.detail,
+            status: s.status,
+            count: s.count,
+          }))
+        : defaultStages;
 
-  const blueprintSubtitle = plan
-    ? `${plan.stages.length}-step workflow blueprint generated for this request`
-    : persistedRun
-      ? `${stages.length}-step workflow executed with verified provenance`
-      : "8-step workflow generated by the AI for this request";
+  const blueprintSubtitle =
+    isPendingPlan && activePlan
+      ? `${activePlan.stages.length}-step workflow blueprint generated for this request`
+      : persistedRun
+        ? `${stages.length}-step workflow executed with verified provenance`
+        : "8-step workflow generated by the AI for this request";
 
   const interventions = persistedRun ? persistedRun.interventions : defaultInterventions;
-  const validatedCount = persistedRun ? persistedRun.quality.validated : (plan ? 0 : 31);
-  const uniqueCount = persistedRun ? persistedRun.quality.unique : (plan ? 0 : 36);
-  const qualityScore = persistedRun
-    ? Math.round((persistedRun.quality.validated / Math.max(1, persistedRun.quality.unique)) * 100)
-    : (plan ? 0 : 88);
+  const validatedCount = persistedRun ? (persistedRun.quality?.validated ?? 0) : 0;
+  const uniqueCount = persistedRun ? (persistedRun.quality?.unique ?? 0) : 0;
+  const rawScore = persistedRun
+    ? Math.round(
+        ((persistedRun.quality?.validated ?? 0) / Math.max(1, persistedRun.quality?.unique ?? 1)) *
+          100,
+      )
+    : isPendingPlan
+      ? 0
+      : 88;
+  const qualityScore = Number.isFinite(rawScore) ? rawScore : 0;
 
   // Derive coverage before/after from real adaptiveSummary or stages
   const coverageOutcome = persistedRun?.adaptiveSummary?.match(/from (\d+)% to (\d+)%/);
   const singleCoverage = persistedRun?.adaptiveSummary?.match(/coverage is (\d+)%/);
-  const coverageBefore = coverageOutcome ? Number(coverageOutcome[1]) : singleCoverage ? Number(singleCoverage[1]) : (persistedRun ? 50 : 0);
-  const coverageAfter = coverageOutcome ? Number(coverageOutcome[2]) : singleCoverage ? Number(singleCoverage[1]) : (persistedRun ? 80 : 0);
+  const coverageBefore = coverageOutcome
+    ? Number(coverageOutcome[1])
+    : singleCoverage
+      ? Number(singleCoverage[1])
+      : persistedRun
+        ? 50
+        : 0;
+  const coverageAfter = coverageOutcome
+    ? Number(coverageOutcome[2])
+    : singleCoverage
+      ? Number(singleCoverage[1])
+      : persistedRun
+        ? 80
+        : 0;
 
   return (
     <div>
+      {/* Switcher bar: Switch between available collection workflows */}
+      {availableRuns.length > 0 && (
+        <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border/80 bg-card p-3 shadow-xs sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <Waypoints className="size-4 text-primary shrink-0" />
+            <label
+              htmlFor="workflow-select"
+              className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground"
+            >
+              Workflow:
+            </label>
+            <select
+              id="workflow-select"
+              value={persistedRun?.id ?? ""}
+              onChange={async (e) => {
+                const selectedId = e.target.value;
+                if (!selectedId) return;
+                try {
+                  await setActiveRunFn({ data: { runId: selectedId } });
+                } catch {
+                  // ignore
+                }
+                navigate({ to: "/workflow", search: { runId: selectedId } });
+              }}
+              className="h-8 max-w-sm rounded-md border border-border bg-background px-2.5 text-xs font-medium text-foreground outline-none focus:border-ring"
+            >
+              {availableRuns.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.requestName} · v{r.runNumber} ({r.validated} qualified)
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-3 text-xs">
+            {persistedRun && (
+              <>
+                <Link
+                  to="/datasets"
+                  search={{ runId: persistedRun.id }}
+                  className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                >
+                  <Database className="size-3.5" />
+                  Dataset ({validatedCount})
+                </Link>
+                <span className="text-border">|</span>
+                <Link
+                  to="/evidence"
+                  search={{ runId: persistedRun.id }}
+                  className="inline-flex items-center gap-1 font-semibold text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  <FileSearch className="size-3.5" />
+                  Evidence
+                </Link>
+                <span className="text-border">|</span>
+                <Link
+                  to="/history"
+                  className="inline-flex items-center gap-1 font-semibold text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  History
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Rerun Success Banner */}
+      {rerunSuccess && (
+        <div className="mb-6 flex flex-col justify-between gap-3 rounded-xl border border-success/30 bg-success/10 p-4 text-xs sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="size-5 shrink-0 text-success" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                Workflow Rerun Complete · v{rerunSuccess.runNumber}
+              </p>
+              <p className="mt-0.5 text-muted-foreground">
+                Dataset updated with {rerunSuccess.validatedCount} qualified records
+                {rerunSuccess.validatedDelta !== 0 && (
+                  <strong className="ml-1 text-success">
+                    (
+                    {rerunSuccess.validatedDelta > 0
+                      ? `+${rerunSuccess.validatedDelta}`
+                      : rerunSuccess.validatedDelta}{" "}
+                    validated delta)
+                  </strong>
+                )}
+                . Sources and evidence citations updated.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link to="/datasets" search={{ runId: rerunSuccess.runId }}>
+              <Button size="sm">
+                <Database className="size-3.5" />
+                Inspect dataset
+              </Button>
+            </Link>
+            <Link to="/evidence" search={{ runId: rerunSuccess.runId }}>
+              <Button size="sm" variant="outline">
+                <FileSearch className="size-3.5" />
+                Evidence
+              </Button>
+            </Link>
+            <button
+              onClick={() => setRerunSuccess(null)}
+              className="p-1 text-muted-foreground hover:text-foreground"
+              aria-label="Dismiss banner"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       <PageIntro
         eyebrow={eyebrow}
         title={title}
@@ -317,38 +604,84 @@ function renderConstraintsText(understanding: any): string {
                 New request
               </Button>
             </Link>
-            <Button onClick={handleRunPipeline} disabled={running}>
-              {running ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Collecting data…
-                </>
-              ) : plan ? (
-                <>
-                  <Play className="size-4" />
-                  Run pipeline
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="size-4" />
-                  Rerun pipeline
-                </>
-              )}
-            </Button>
+            {isPendingPlan ? (
+              <Button onClick={handleRunPendingPlan} disabled={running}>
+                {running ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Executing blueprint…
+                  </>
+                ) : (
+                  <>
+                    <Play className="size-4" />
+                    Run pipeline
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button onClick={handleRerunWorkflow} disabled={running}>
+                {running ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Rerunning workflow…
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="size-4" />
+                    Rerun workflow
+                  </>
+                )}
+              </Button>
+            )}
           </>
         }
       />
 
       <div className="mb-6 grid gap-4 sm:grid-cols-4">
         {[
-          ["Progress", running ? "Executing…" : plan ? "Ready to run" : "100% Complete"],
-          ["Records", running ? "Collecting…" : plan ? "—" : `${uniqueCount} unique`],
-          ["Quality score", running ? "Processing…" : plan ? "—" : `${qualityScore} / 100`],
-          ["Status", running ? "Running…" : plan ? "Pending" : "Dataset Ready"],
+          [
+            "Progress",
+            running && pipelineProgress
+              ? `${pipelineProgress.percent}% · ${pipelineProgress.state}`
+              : running
+                ? "Executing…"
+                : isPendingPlan
+                  ? "Ready to run"
+                  : "100% Complete",
+          ],
+          [
+            "Records",
+            running && pipelineProgress
+              ? pipelineProgress.stageName
+              : running
+                ? "Collecting…"
+                : isPendingPlan
+                  ? "—"
+                  : `${uniqueCount} unique`,
+          ],
+          [
+            "Quality score",
+            running ? "Evaluating…" : isPendingPlan ? "—" : `${qualityScore} / 100`,
+          ],
+          [
+            "Status",
+            running
+              ? pipelineProgress?.state || "Running…"
+              : isPendingPlan
+                ? "Pending"
+                : "Dataset Ready",
+          ],
         ].map(([label, value]) => (
           <div className="border border-border bg-card p-4" key={label}>
             <p className="text-[11px] font-medium text-muted-foreground">{label}</p>
-            <p className={cn("mt-2 text-xl font-semibold tabular-nums", running && "text-primary animate-pulse")}>{value}</p>
+            <p
+              className={cn(
+                "mt-2 text-xl font-semibold tabular-nums",
+                running && "text-primary animate-pulse",
+              )}
+            >
+              {value}
+            </p>
           </div>
         ))}
       </div>
@@ -357,13 +690,13 @@ function renderConstraintsText(understanding: any): string {
         <SectionHeader
           title="AI understanding"
           subtitle={
-            plan
+            isPendingPlan
               ? "Live structured breakdown of your natural-language requirements"
               : "Structured requirement breakdown before collection began"
           }
           action={
             <div className="flex items-center gap-1.5 text-xs text-primary font-medium">
-              {(plan || persistedRun) && <Sparkles className="size-3.5" />}
+              {(isPendingPlan || persistedRun) && <Sparkles className="size-3.5" />}
               <Brain className="size-4" />
             </div>
           }
@@ -383,6 +716,34 @@ function renderConstraintsText(understanding: any): string {
           <section className="border border-border bg-card">
             <SectionHeader title="Collection blueprint" subtitle={blueprintSubtitle} />
 
+            {running && pipelineProgress && (
+              <div className="mx-5 mt-4 rounded-md border border-primary/30 bg-primary/5 p-4 text-xs">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="size-4 animate-spin text-primary" />
+                    <span className="rounded bg-primary/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
+                      {pipelineProgress.state}
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {pipelineProgress.stageName}
+                    </span>
+                  </div>
+                  <span className="text-xs font-semibold tabular-nums text-primary">
+                    {pipelineProgress.percent}%
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-500"
+                    style={{ width: `${pipelineProgress.percent}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+                  {pipelineProgress.detail}
+                </p>
+              </div>
+            )}
+
             {pipelineError && (
               <div className="mx-5 mt-4 rounded-md border border-destructive/40 bg-danger-muted p-4 text-xs text-destructive">
                 <div className="flex items-start gap-2">
@@ -397,9 +758,17 @@ function renderConstraintsText(understanding: any): string {
 
             <div className="px-5 py-2">
               {stages.map((stage, index) => {
-                const isPlanOnly = !!plan && !persistedRun && !running;
-                const isComplete = !isPlanOnly && (stage.status === "complete" || (persistedRun && !running));
-                const isActive = running && index === 1;
+                const isPlanOnly = isPendingPlan && !persistedRun && !running;
+                const stageProgressIndex = Math.min(
+                  stages.length - 1,
+                  Math.floor(((pipelineProgress?.percent ?? 10) / 100) * stages.length),
+                );
+                const isComplete =
+                  !isPlanOnly &&
+                  ((stage.status === "complete" && !running) ||
+                    (running && index < stageProgressIndex) ||
+                    (persistedRun && !running));
+                const isActive = running && index === stageProgressIndex;
 
                 return (
                   <div
@@ -409,10 +778,8 @@ function renderConstraintsText(understanding: any): string {
                     <span
                       className={cn(
                         "z-10 flex size-8 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
-                        isComplete &&
-                          "border-success bg-success text-success-foreground",
-                        isActive &&
-                          "border-primary bg-primary-muted text-primary",
+                        isComplete && "border-success bg-success text-success-foreground",
+                        isActive && "border-primary bg-primary-muted text-primary",
                         (isPlanOnly || (!isComplete && !isActive)) &&
                           "border-border bg-background text-muted-foreground",
                       )}
@@ -496,8 +863,14 @@ function renderConstraintsText(understanding: any): string {
                 <div className="mt-2 flex items-center gap-3">
                   <span className="text-sm font-semibold text-warning">{coverageBefore}%</span>
                   <div className="relative h-2 flex-1 rounded-full bg-muted">
-                    <div className="absolute inset-y-0 left-0 rounded-full bg-success/40" style={{ width: `${coverageAfter}%` }} />
-                    <div className="absolute inset-y-0 left-0 rounded-full bg-success" style={{ width: `${coverageBefore}%` }} />
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-success/40"
+                      style={{ width: `${coverageAfter}%` }}
+                    />
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-success"
+                      style={{ width: `${coverageBefore}%` }}
+                    />
                   </div>
                   <span className="text-sm font-semibold text-success">{coverageAfter}%</span>
                 </div>

@@ -7,13 +7,16 @@ import {
   ArrowUp,
   CheckCircle2,
   ChevronDown,
+  Database,
   Download,
+  ExternalLink,
   FileCode,
   FileSpreadsheet,
   Filter,
   HelpCircle,
   Loader2,
   Search,
+  Waypoints,
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -25,7 +28,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Confidence, PageIntro } from "@/components/dashboard-ui";
 import { RecordDetail } from "@/components/record-detail";
-import { datasetRows, type DatasetRecord as MockDatasetRecord } from "@/lib/mock-data";
 import { usePipelineResult } from "@/lib/pipeline-store";
 import type { DatasetRecord as PipelineDatasetRecord } from "@/lib/pipeline-schema";
 import { getActiveRunFn, getRunByIdFn } from "@/lib/storage-fns";
@@ -33,11 +35,13 @@ import type { PersistedRun } from "@/lib/storage-schema";
 
 export type DatasetSearch = {
   runId?: string | undefined;
+  recordId?: string | undefined;
 };
 
 export const Route = createFileRoute("/datasets")({
   validateSearch: (search: Record<string, unknown>): DatasetSearch => ({
     runId: typeof search["runId"] === "string" ? (search["runId"] as string) : undefined,
+    recordId: typeof search["recordId"] === "string" ? (search["recordId"] as string) : undefined,
   }),
   head: () => ({
     meta: [
@@ -62,7 +66,7 @@ export const Route = createFileRoute("/datasets")({
 
 const statuses = ["All", "Qualified", "Needs verification", "Excluded", "Conflict"] as const;
 
-type AnyRecord = any;
+type AnyRecord = PipelineDatasetRecord;
 
 function escapeCsv(val: string | number | undefined | null): string {
   if (val === undefined || val === null) return "";
@@ -113,7 +117,8 @@ function getRecordCellValue(record: AnyRecord, key: string, label: string): stri
     if (record.attributes[label]) return record.attributes[label]!;
     const norm = label.toLowerCase().replace(/[^a-z0-9]/g, "");
     for (const [k, v] of Object.entries(record.attributes)) {
-      if (k.toLowerCase().replace(/[^a-z0-9]/g, "") === norm && v !== undefined && v !== null) return String(v);
+      if (k.toLowerCase().replace(/[^a-z0-9]/g, "") === norm && v !== undefined && v !== null)
+        return String(v);
     }
   }
 
@@ -123,17 +128,16 @@ function getRecordCellValue(record: AnyRecord, key: string, label: string): stri
 
   const normLabel = label.toLowerCase().replace(/[^a-z0-9]/g, "");
   if (normLabel.includes("company") || normLabel.includes("brand"))
-    return (record as any).company || (record as any).entityName || "—";
+    return record.company || record.entityName || "—";
   if (normLabel.includes("role") || normLabel.includes("model") || normLabel.includes("property"))
-    return (record as any).role || "—";
-  if (normLabel.includes("location") || normLabel.includes("city"))
-    return (record as any).location || "—";
+    return record.role || "—";
+  if (normLabel.includes("location") || normLabel.includes("city")) return record.location || "—";
   if (normLabel.includes("salary") || normLabel.includes("price") || normLabel.includes("cost"))
-    return (record as any).salary || "—";
+    return record.salary || "—";
   if (normLabel.includes("experience") || normLabel.includes("range"))
-    return (record as any).experience || "—";
+    return record.experience || "—";
   if (normLabel.includes("size") || normLabel.includes("battery") || normLabel.includes("area"))
-    return (record as any).size || "—";
+    return record.size || "—";
 
   return "—";
 }
@@ -185,7 +189,7 @@ function DatasetsPage() {
     };
   }, [explicitRunId]);
 
-  // Determine active dataset: strictly priority driven
+  // Determine active dataset: strictly priority driven (no silent mock fallback)
   const rows_source: AnyRecord[] = useMemo(() => {
     if (explicitRunId) {
       return (persistedRun?.records as AnyRecord[]) ?? [];
@@ -196,7 +200,7 @@ function DatasetsPage() {
     if (pipelineResult) {
       return pipelineResult.records ?? [];
     }
-    return datasetRows;
+    return [];
   }, [explicitRunId, persistedRun, pipelineResult]);
 
   // Compute dynamic columns based on run's required fields
@@ -212,15 +216,23 @@ function DatasetsPage() {
         list.push({ key: "source", label: "Source", isAttribute: false });
       }
       if (!list.some((c) => c.key === "confidence")) {
-        list.push({ key: "confidence", label: "Confidence", isAttribute: false });
+        list.push({ key: "confidence", label: "Evidence Reliability", isAttribute: false });
       }
-      if (!list.some((c) => c.key === "qualificationstatus" || c.key === "qualification_status" || c.key === "qualification")) {
+      if (
+        !list.some(
+          (c) =>
+            c.key === "qualificationstatus" ||
+            c.key === "qualification_status" ||
+            c.key === "qualification",
+        )
+      ) {
         list.push({ key: "qualificationStatus", label: "Qualification", isAttribute: false });
       }
+      list.push({ key: "actions", label: "Actions", isAttribute: false });
       return list;
     }
 
-    // Default canonical columns for legacy demo
+    // Default canonical columns
     return [
       { key: "company", label: "Company", isAttribute: false },
       { key: "role", label: "Job Role", isAttribute: false },
@@ -229,15 +241,18 @@ function DatasetsPage() {
       { key: "salary", label: "Salary", isAttribute: false },
       { key: "size", label: "Company Size", isAttribute: false },
       { key: "source", label: "Source", isAttribute: false },
-      { key: "confidence", label: "Confidence", isAttribute: false },
+      { key: "confidence", label: "Evidence Reliability", isAttribute: false },
       { key: "qualificationStatus", label: "Qualification", isAttribute: false },
+      { key: "actions", label: "Actions", isAttribute: false },
     ];
   }, [persistedRun]);
 
   // Compute live quality & qualification metrics
   const q = useMemo(() => {
     const qualified = rows_source.filter(
-      (r) => r.qualificationStatus === "Qualified" || (!r.qualificationStatus && r.status === "Verified"),
+      (r) =>
+        r.qualificationStatus === "Qualified" ||
+        (!r.qualificationStatus && r.status === "Verified"),
     ).length;
     const needsVerification = rows_source.filter(
       (r) =>
@@ -250,10 +265,7 @@ function DatasetsPage() {
         (!r.qualificationStatus && r.status === "Incomplete"),
     ).length;
     const conflicts = rows_source.filter(
-      (r) =>
-        r.qualificationStatus === "Conflict" ||
-        r.conflict != null ||
-        r.status === "Conflict",
+      (r) => r.qualificationStatus === "Conflict" || r.conflict != null || r.status === "Conflict",
     ).length;
 
     const baseCollected =
@@ -274,8 +286,12 @@ function DatasetsPage() {
     };
   }, [rows_source, persistedRun, pipelineResult]);
 
-  const activePlanId = persistedRun?.requestId || (explicitRunId ? explicitRunId : pipelineResult?.planId || "Selected collection");
-  const pageTitle = persistedRun?.requestName || (explicitRunId ? explicitRunId : pipelineResult?.title || "Dataset Records");
+  const activePlanId =
+    persistedRun?.requestId ||
+    (explicitRunId ? explicitRunId : pipelineResult?.planId || "Selected collection");
+  const pageTitle =
+    persistedRun?.requestName ||
+    (explicitRunId ? explicitRunId : pipelineResult?.title || "Dataset Records");
   const pageEyebrow = persistedRun?.id ? `Run · ${persistedRun.id}` : `Dataset · ${activePlanId}`;
   const pageDescription =
     "Records are deterministically qualified against your hard constraints with verified primary evidence.";
@@ -286,7 +302,15 @@ function DatasetsPage() {
     key: "confidence",
     dir: -1,
   });
-  const [selected, setSelected] = useState<string | null>(null);
+  const explicitRecordId = search?.recordId;
+  const [selected, setSelected] = useState<string | null>(explicitRecordId || null);
+
+  useEffect(() => {
+    if (explicitRecordId) {
+      setSelected(explicitRecordId);
+    }
+  }, [explicitRecordId]);
+
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
@@ -295,33 +319,41 @@ function DatasetsPage() {
     setPage(1);
   }, [query, status]);
 
-function parseCellNumeric(text: string): number | null {
-  if (!text || text === "—" || text.toLowerCase().includes("not disclosed")) return null;
-  const clean = text.trim();
+  function parseCellNumeric(text: string): number | null {
+    if (!text || text === "—" || text.toLowerCase().includes("not disclosed")) return null;
+    const clean = text.trim();
 
-  // Lakhs detection: e.g. "₹50 lakh", "₹ 1.5 Lakh", "50L", "1.5 Lakhs"
-  const lakhMatch = clean.match(/(?:₹|INR|Rs\.?)?\s*(\d+(?:\.\d+)?)\s*(?:lakhs?|l)\b/i);
-  if (lakhMatch) return parseFloat(lakhMatch[1]!) * 100000;
+    // Lakhs detection: e.g. "₹50 lakh", "₹ 1.5 Lakh", "50L", "1.5 Lakhs"
+    const lakhMatch = clean.match(/(?:₹|INR|Rs\.?)?\s*(\d+(?:\.\d+)?)\s*(?:lakhs?|l)\b/i);
+    if (lakhMatch) return parseFloat(lakhMatch[1]!) * 100000;
 
-  // Crores detection: e.g. "₹5 Cr", "5 Crore"
-  const crMatch = clean.match(/(?:₹|INR|Rs\.?)?\s*(\d+(?:\.\d+)?)\s*(?:crores?|cr)\b/i);
-  if (crMatch) return parseFloat(crMatch[1]!) * 10000000;
+    // Crores detection: e.g. "₹5 Cr", "5 Crore"
+    const crMatch = clean.match(/(?:₹|INR|Rs\.?)?\s*(\d+(?:\.\d+)?)\s*(?:crores?|cr)\b/i);
+    if (crMatch) return parseFloat(crMatch[1]!) * 10000000;
 
-  // Numbers or Indian commas, or ranges: e.g. "50-500", "120 km", "₹1,50,000"
-  const numMatch = clean.match(/(\d{1,3}(?:,\d{2,3})*(?:\.\d+)?|\d+(?:\.\d+)?)/);
-  if (numMatch) {
-    const parsed = parseFloat(numMatch[1]!.replace(/,/g, ""));
-    if (!isNaN(parsed)) return parsed;
+    // Numbers or Indian commas, or ranges: e.g. "50-500", "120 km", "₹1,50,000"
+    const numMatch = clean.match(/(\d{1,3}(?:,\d{2,3})*(?:\.\d+)?|\d+(?:\.\d+)?)/);
+    if (numMatch) {
+      const parsed = parseFloat(numMatch[1]!.replace(/,/g, ""));
+      if (!isNaN(parsed)) return parsed;
+    }
+
+    return null;
   }
-
-  return null;
-}
 
   const filteredRows = useMemo(
     () =>
       rows_source
         .filter((r) => {
-          const qual = r.qualificationStatus || (r.status === "Verified" ? "Qualified" : r.status === "Conflict" ? "Conflict" : r.status === "Incomplete" ? "Excluded" : "Needs verification");
+          const qual =
+            r.qualificationStatus ||
+            (r.status === "Verified"
+              ? "Qualified"
+              : r.status === "Conflict"
+                ? "Conflict"
+                : r.status === "Incomplete"
+                  ? "Excluded"
+                  : "Needs verification");
           const statusMatch = status === "All" || qual === status;
 
           const searchTarget = [
@@ -368,7 +400,9 @@ function parseCellNumeric(text: string): number | null {
             return (aNum - bNum) * sort.dir;
           }
 
-          return aRaw.localeCompare(bRaw, undefined, { numeric: true, sensitivity: "base" }) * sort.dir;
+          return (
+            aRaw.localeCompare(bRaw, undefined, { numeric: true, sensitivity: "base" }) * sort.dir
+          );
         }),
     [query, status, sort, rows_source, dynamicCols],
   );
@@ -446,7 +480,9 @@ function parseCellNumeric(text: string): number | null {
     return (
       <div className="flex h-64 flex-col items-center justify-center gap-3">
         <Loader2 className="size-6 animate-spin text-primary" />
-        <p className="text-xs text-muted-foreground">Loading dataset for run {explicitRunId || "active"}…</p>
+        <p className="text-xs text-muted-foreground">
+          Loading dataset for run {explicitRunId || "active"}…
+        </p>
       </div>
     );
   }
@@ -458,7 +494,9 @@ function parseCellNumeric(text: string): number | null {
           <AlertTriangle className="mx-auto size-8 text-destructive" />
           <h2 className="mt-3 text-lg font-semibold">Workflow Run Not Found</h2>
           <p className="mt-2 text-xs text-muted-foreground">
-            The requested run <span className="font-mono text-foreground font-semibold">{explicitRunId}</span> could not be loaded from local storage.
+            The requested run{" "}
+            <span className="font-mono text-foreground font-semibold">{explicitRunId}</span> could
+            not be loaded from local storage.
           </p>
           <div className="mt-6 flex justify-center gap-3">
             <Link
@@ -473,6 +511,44 @@ function parseCellNumeric(text: string): number | null {
     );
   }
 
+  if (rows_source.length === 0) {
+    return (
+      <div>
+        <PageIntro
+          eyebrow="Dataset Explorer"
+          title="No research runs found"
+          description="There are currently no research collection runs in the system. Create a new request to collect structured, evidence-backed data."
+          actions={
+            <Link to="/requests">
+              <Button>
+                Create Request
+                <ArrowRight className="size-4 ml-1.5" />
+              </Button>
+            </Link>
+          }
+        />
+        <div className="mt-8 rounded-lg border border-dashed border-border bg-card p-12 text-center">
+          <Database className="mx-auto size-10 text-muted-foreground/40 mb-3" />
+          <h3 className="text-sm font-semibold">No dataset records yet</h3>
+          <p className="mt-1 text-xs text-muted-foreground max-w-md mx-auto">
+            DataIntel collects and validates structured entities from web research. Enter a prompt
+            to generate a collection workflow.
+          </p>
+          <div className="mt-6 flex justify-center gap-3">
+            <Link to="/requests">
+              <Button size="sm">Start Research</Button>
+            </Link>
+            <Link to="/workflow">
+              <Button variant="outline" size="sm">
+                Workflow Designer
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageIntro
@@ -480,25 +556,33 @@ function parseCellNumeric(text: string): number | null {
         title={pageTitle}
         description={pageDescription}
         actions={
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+          <div className="flex items-center gap-2">
+            <Link to="/workflow" search={persistedRun ? { runId: persistedRun.id } : {}}>
               <Button variant="outline">
-                <Download className="size-4" />
-                Export
-                <ChevronDown className="size-3 ml-1 opacity-60" />
+                <Waypoints className="size-4" />
+                Workflow
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={handleExportCSV}>
-                <FileSpreadsheet className="size-4 mr-2 text-primary" />
-                Export as CSV (.csv)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleExportJSON}>
-                <FileCode className="size-4 mr-2 text-primary" />
-                Export as JSON Snapshot (.json)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </Link>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="size-4" />
+                  Export
+                  <ChevronDown className="size-3 ml-1 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportCSV}>
+                  <FileSpreadsheet className="size-4 mr-2 text-primary" />
+                  Export as CSV (.csv)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportJSON}>
+                  <FileCode className="size-4 mr-2 text-primary" />
+                  Export as JSON Snapshot (.json)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         }
       />
 
@@ -517,7 +601,9 @@ function parseCellNumeric(text: string): number | null {
           <ArrowRight className="size-3.5 text-muted-foreground" />
           <span>
             <strong className="text-lg text-success">{q.validated}</strong>{" "}
-            <span className="text-xs text-muted-foreground font-semibold text-success">qualified</span>
+            <span className="text-xs text-muted-foreground font-semibold text-success">
+              qualified
+            </span>
           </span>
         </div>
         {[
@@ -609,7 +695,10 @@ function parseCellNumeric(text: string): number | null {
                     if (col.key === "confidence") {
                       return (
                         <td key={col.key} className="px-4 py-3.5">
-                          <Confidence value={row.confidence} />
+                          <Confidence
+                            value={row.confidence}
+                            {...(row.evidenceBreakdown ? { breakdown: row.evidenceBreakdown } : {})}
+                          />
                         </td>
                       );
                     }
@@ -624,6 +713,52 @@ function parseCellNumeric(text: string): number | null {
                       return (
                         <td key={col.key} className="px-4 py-3.5 text-xs text-muted-foreground">
                           {row.source}
+                        </td>
+                      );
+                    }
+                    if (col.key === "actions") {
+                      const primarySourceUrl =
+                        row.evidence?.[0]?.url ||
+                        (row.source?.startsWith("http") ? row.source : null);
+                      return (
+                        <td
+                          key={col.key}
+                          className="px-4 py-3.5"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setSelected(row.id)}
+                              className="text-[11px] font-semibold text-primary hover:underline"
+                            >
+                              Details
+                            </button>
+                            <span className="text-muted-foreground/30">·</span>
+                            <Link
+                              to="/evidence"
+                              search={{ runId: persistedRun?.id }}
+                              className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                            >
+                              Evidence
+                            </Link>
+                            {primarySourceUrl && primarySourceUrl !== "—" && (
+                              <>
+                                <span className="text-muted-foreground/30">·</span>
+                                <a
+                                  href={
+                                    primarySourceUrl.startsWith("http")
+                                      ? primarySourceUrl
+                                      : `https://${primarySourceUrl}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-0.5 text-[11px] text-muted-foreground hover:text-primary hover:underline"
+                                >
+                                  Source <ExternalLink className="size-2.5" />
+                                </a>
+                              </>
+                            )}
+                          </div>
                         </td>
                       );
                     }
