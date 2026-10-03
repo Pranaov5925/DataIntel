@@ -67,10 +67,8 @@ function HistoryPage() {
       });
 
       if (res.success && res.newRun) {
-        setRerunMessage(
-          `Run #${res.newRun.runNumber} created successfully! +${res.newRun.quality.validated} validated records.`,
-        );
-        await loadHistory();
+        await setActiveRunFn({ data: { runId: res.newRun.id } });
+        await navigate({ to: "/workflow", search: { runId: res.newRun.id } });
       } else {
         setRerunMessage(res.error ?? "Failed to rerun workflow.");
       }
@@ -79,6 +77,15 @@ function HistoryPage() {
     } finally {
       setRerunning(false);
     }
+  }
+
+  async function handleOpenWorkflow(runId: string) {
+    try {
+      await setActiveRunFn({ data: { runId } });
+    } catch (err) {
+      console.error("Failed to select run:", err);
+    }
+    await navigate({ to: "/workflow", search: { runId } });
   }
 
   async function handleSelectRun(run: PersistedRun) {
@@ -171,7 +178,17 @@ function HistoryPage() {
                     <span className="z-10 flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-[11px] font-bold">
                       v{run.runNumber}
                     </span>
-                    <div className="min-w-0 flex-1 border border-border p-4">
+                    <div
+                      onClick={() => handleOpenWorkflow(run.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          handleOpenWorkflow(run.id);
+                        }
+                      }}
+                      className="min-w-0 flex-1 cursor-pointer rounded-lg border border-border bg-card p-4 transition-all duration-200 hover:border-primary/60 hover:bg-muted/15 hover:shadow-xs focus:border-ring focus:outline-none"
+                    >
                       <div className="flex flex-col justify-between gap-2 sm:flex-row">
                         <div>
                           <div className="flex items-center gap-2">
@@ -192,7 +209,7 @@ function HistoryPage() {
                       </div>
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-xs">
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                          <span className="flex items-center gap-2 text-success font-medium">
+                          <span className="flex items-center gap-2 font-medium text-success">
                             <CheckCircle2 className="size-3.5" />
                             {outcome}
                           </span>
@@ -204,27 +221,21 @@ function HistoryPage() {
                             {run.quality.conflicts} conflicts
                           </span>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <button
-                            onClick={async () => {
-                              try {
-                                await setActiveRunFn({ data: { runId: run.id } });
-                              } catch {
-                                // ignore
-                              }
-                              navigate({ to: "/workflow", search: { runId: run.id } });
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenWorkflow(run.id);
                             }}
-                            className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                            className="h-7 text-xs font-semibold"
                           >
-                            Workflow
-                          </button>
+                            <RotateCw className="mr-1.5 size-3" />
+                            Workflow & rerun
+                          </Button>
                           <button
-                            onClick={async () => {
-                              try {
-                                await setActiveRunFn({ data: { runId: run.id } });
-                              } catch {
-                                // ignore
-                              }
+                            onClick={(e) => {
+                              e.stopPropagation();
                               navigate({ to: "/evidence", search: { runId: run.id } });
                             }}
                             className="text-[11px] text-muted-foreground hover:text-foreground hover:underline"
@@ -232,10 +243,13 @@ function HistoryPage() {
                             Evidence
                           </button>
                           <button
-                            onClick={() => handleSelectRun(run)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectRun(run);
+                            }}
                             className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
                           >
-                            Inspect dataset <ExternalLink className="size-3" />
+                            Dataset <ExternalLink className="size-3" />
                           </button>
                         </div>
                       </div>
@@ -315,7 +329,11 @@ function HistoryPage() {
           title="All workflow runs"
           subtitle="Current and previous hiring research requests"
         />
-        {data?.allRequests ? <TaskTable tasks={data.allRequests} /> : <TaskTable />}
+        {data?.allRequests ? (
+          <TaskTable tasks={data.allRequests} destination="workflow" />
+        ) : (
+          <TaskTable destination="workflow" />
+        )}
       </section>
     </div>
   );

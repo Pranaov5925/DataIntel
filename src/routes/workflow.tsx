@@ -47,13 +47,13 @@ export const Route = createFileRoute("/workflow")({
   }),
   head: () => ({
     meta: [
-      { title: "Active Workflow — DataIntel" },
+      { title: "Workflow — DataIntel" },
       {
         name: "description",
         content:
           "See how the AI understood a request, the generated collection blueprint, and adaptive decisions.",
       },
-      { property: "og:title", content: "Active Workflow — DataIntel" },
+      { property: "og:title", content: "Workflow — DataIntel" },
       {
         property: "og:description",
         content:

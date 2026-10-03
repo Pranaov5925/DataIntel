@@ -197,9 +197,11 @@ export type TaskItem = {
 export function TaskTable({
   compact = false,
   tasks: customTasks,
+  destination = "workflow",
 }: {
   compact?: boolean | undefined;
   tasks?: TaskItem[] | undefined;
+  destination?: "workflow" | "datasets" | undefined;
 }) {
   const list = customTasks ?? tasks;
   return (
@@ -213,20 +215,28 @@ export function TaskTable({
             <th className="px-4 py-3">Records</th>
             <th className="px-4 py-3">Quality</th>
             <th className="px-4 py-3">Updated</th>
-            <th className="w-12 px-4 py-3" />
+            <th className="px-4 py-3 text-right">Actions</th>
           </tr>
         </thead>
         <tbody>
           {list.slice(0, compact ? 4 : undefined).map((task) => {
             const taskRunId =
               "runId" in task && typeof task.runId === "string" ? task.runId : undefined;
+            const targetRoute =
+              destination === "workflow"
+                ? "/workflow"
+                : destination === "datasets"
+                  ? "/datasets"
+                  : task.status === "Running"
+                    ? "/workflow"
+                    : "/workflow";
             return (
               <tr key={task.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                 <td className="px-5 py-3.5">
                   <Link
-                    to={task.status === "Running" ? "/workflow" : "/datasets"}
+                    to={targetRoute}
                     search={taskRunId ? { runId: taskRunId } : {}}
-                    className="font-medium text-foreground hover:text-primary"
+                    className="font-medium text-foreground hover:text-primary transition"
                   >
                     {task.name}
                   </Link>
@@ -253,10 +263,25 @@ export function TaskTable({
                   <Confidence value={task.quality} />
                 </td>
                 <td className="px-4 py-3.5 text-xs text-muted-foreground">{task.updated}</td>
-                <td className="px-4 py-3.5">
-                  <Button variant="ghost" size="icon" aria-label={`Actions for ${task.name}`}>
-                    <MoreHorizontal className="size-4" />
-                  </Button>
+                <td className="px-4 py-3.5 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <Link
+                      to="/workflow"
+                      search={taskRunId ? { runId: taskRunId } : {}}
+                      className="inline-flex items-center rounded border border-border bg-background px-2 py-1 text-[11px] font-semibold text-primary transition hover:border-primary/50 hover:bg-primary-muted"
+                    >
+                      Workflow
+                    </Link>
+                    {taskRunId && (
+                      <Link
+                        to="/datasets"
+                        search={{ runId: taskRunId }}
+                        className="inline-flex items-center text-[11px] text-muted-foreground hover:text-foreground hover:underline"
+                      >
+                        Dataset
+                      </Link>
+                    )}
+                  </div>
                 </td>
               </tr>
             );

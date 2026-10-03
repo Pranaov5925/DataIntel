@@ -31,7 +31,7 @@ type NavigationItem = {
 const navigation: NavigationItem[] = [
   { to: "/", label: "Overview", icon: Gauge },
   { to: "/requests", label: "New request", icon: Plus },
-  { to: "/workflow", label: "Active workflow", icon: Waypoints },
+  { to: "/workflow", label: "Workflow", icon: Waypoints },
   { to: "/datasets", label: "Datasets", icon: Database },
   { to: "/evidence", label: "Sources & evidence", icon: FileSearch },
   { to: "/history", label: "Workflow history", icon: Clock3 },
@@ -40,7 +40,7 @@ const navigation: NavigationItem[] = [
 const pageDetails: Record<string, { title: string; eyebrow: string }> = {
   "/": { title: "Overview", eyebrow: "Workspace" },
   "/requests": { title: "Create data request", eyebrow: "New collection" },
-  "/workflow": { title: "Active workflow", eyebrow: "Data pipeline" },
+  "/workflow": { title: "Workflow", eyebrow: "Data pipeline" },
   "/datasets": { title: "Dataset explorer", eyebrow: "Dataset" },
   "/evidence": { title: "Sources & evidence", eyebrow: "Audit trail" },
   "/history": { title: "Workflow history", eyebrow: "Provenance" },

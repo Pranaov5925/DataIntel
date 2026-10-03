@@ -1,7 +1,19 @@
 {
-  "activeRequestId": "DR-2322",
-  "activeRunId": "RUN-DR-2322-v1",
+  "activeRequestId": "DR-5380",
+  "activeRunId": "RUN-DR-5380-v1",
   "requests": [
+    {
+      "id": "DR-7322",
+      "name": "Indian SaaS Hiring Data Collection",
+      "prompt": "Find Indian SaaS companies currently hiring software engineers. Include company name, open roles, location, company size, and source.",
+      "status": "completed",
+      "createdAt": "3/10/2026, 19:13:34",
+      "updatedAt": "3/10/2026, 19:14:00",
+      "runIds": [
+        "RUN-DR-7322-v1"
+      ],
+      "activeRunId": "RUN-DR-7322-v1"
+    },
     {
       "id": "DR-2322",
       "name": "Indian B2B SaaS Companies Dataset",
@@ -34,6 +46,7 @@
       "createdAt": "3/10/2026, 18:58:37",
       "updatedAt": "3/10/2026, 18:59:07",
       "runIds": [
+        "RUN-DR-5380-v2",
         "RUN-DR-5380-v1"
       ],
       "activeRunId": "RUN-DR-5380-v1"
@@ -118,7 +131,7 @@
       "prompt": "Find Indian SaaS companies",
       "status": "completed",
       "createdAt": "2026-10-03T12:28:41.430Z",
-      "updatedAt": "2026-10-03T13:30:12.876Z",
+      "updatedAt": "2026-10-03T13:41:38.242Z",
       "runIds": [
         "RUN-TEST-001-v1"
       ],
@@ -126,6 +139,631 @@
     }
   ],
   "runs": [
+    {
+      "id": "RUN-DR-5380-v2",
+      "requestId": "DR-5380",
+      "runNumber": 2,
+      "requestName": "Indian B2B SaaS Companies 50-500 Employees",
+      "originalPrompt": "Find Indian B2B software companies with 50–500 employees. Include company name, headquarters, product category, company size, website, and source.",
+      "status": "Completed",
+      "createdAt": "3/10/2026, 19:17:56",
+      "completedAt": "3/10/2026, 19:18:27",
+      "understanding": {
+        "objective": "Collect structured data on Indian B2B software companies with 50-500 employees for market intelligence and lead generation",
+        "target": "B2B software companies",
+        "geography": "India",
+        "industry": "SaaS",
+        "constraints": [
+          "Indian companies",
+          "B2B software focus",
+          "50-500 employees",
+          "Active companies"
+        ],
+        "structuredConstraints": [
+          {
+            "field": "company_size",
+            "operator": "between",
+            "value": "50",
+            "valueTo": "500",
+            "unit": "employees",
+            "hard": true
+          },
+          {
+            "field": "geography",
+            "operator": "equals",
+            "value": "India",
+            "hard": true
+          },
+          {
+            "field": "business_model",
+            "operator": "equals",
+            "value": "B2B",
+            "hard": true
+          },
+          {
+            "field": "location",
+            "operator": "contains",
+            "value": "India",
+            "hard": false
+          }
+        ],
+        "requiredFields": [
+          "company_name",
+          "headquarters",
+          "product_category",
+          "company_size",
+          "website",
+          "source"
+        ],
+        "optionalFields": [],
+        "freshness": "Companies active in the last 12 months",
+        "searchIntent": "Market research for B2B software vendor identification and competitive analysis"
+      },
+      "blueprintStages": [
+        {
+          "name": "Discover",
+          "detail": "Identify primary sources for Indian B2B SaaS companies including official company directories, SaaS aggregators, LinkedIn Sales Navigator, Crunchbase, Tracxn, and government databases like DPIIT. Validate source credibility and coverage scope.",
+          "status": "complete",
+          "count": "10 sources"
+        },
+        {
+          "name": "Collect",
+          "detail": "Systematically gather candidate company profiles from identified sources using API endpoints, web scraping (where permitted), and manual extraction from curated lists. Focus on sources with explicit employee count data.",
+          "status": "complete",
+          "count": "15 records"
+        },
+        {
+          "name": "Extract",
+          "detail": "Extract required fields (company_name, headquarters, product_category, company_size, website) from collected profiles. Normalize headquarters to standard city/state format and categorize product categories into standardized SaaS segments.",
+          "status": "complete",
+          "count": "79 fields"
+        },
+        {
+          "name": "Clean",
+          "detail": "Clean extracted data by standardizing company names, validating headquarters locations against Indian cities, normalizing employee counts to integer values, and verifying website URLs. Remove duplicates based on company name and headquarters.",
+          "status": "complete",
+          "count": "15 clean"
+        },
+        {
+          "name": "Deduplicate",
+          "detail": "Merge matching records found across multiple sources using company name and headquarters as primary keys. Resolve conflicts by prioritizing sources with most recent employee count data and official company websites.",
+          "status": "complete",
+          "count": "0 dupes"
+        },
+        {
+          "name": "Validate",
+          "detail": "Validate source evidence for each required field by cross-referencing with official company websites, LinkedIn company pages, and government registries. Flag records with missing or unverifiable source evidence.",
+          "status": "complete",
+          "count": "0 valid"
+        },
+        {
+          "name": "Identify gaps",
+          "detail": "Flag records missing any required field or containing conflicting values between sources. Prioritize verification for records with missing headquarters or product category information.",
+          "status": "complete",
+          "count": "4 issues"
+        },
+        {
+          "name": "Verify",
+          "detail": "Targeted verification of flagged records through direct company outreach, additional industry databases, or third-party verification services. Update records with verified information and recalculate confidence scores.",
+          "status": "complete",
+          "count": "0%"
+        },
+        {
+          "name": "Publish",
+          "detail": "Final dataset publishing with audit trail documenting source evidence for each field. Include confidence ratings (85%+ threshold) and last verification timestamp. Export in structured format (CSV/JSON) with provenance citations.",
+          "status": "complete",
+          "count": "15 records"
+        }
+      ],
+      "executedStages": [
+        {
+          "name": "Discover",
+          "detail": "Identify primary sources for Indian B2B SaaS companies including official company directories, SaaS aggregators, LinkedIn Sales Navigator, Crunchbase, Tracxn, and government databases like DPIIT. Validate source credibility and coverage scope.",
+          "status": "complete",
+          "count": "10 sources"
+        },
+        {
+          "name": "Collect",
+          "detail": "Systematically gather candidate company profiles from identified sources using API endpoints, web scraping (where permitted), and manual extraction from curated lists. Focus on sources with explicit employee count data.",
+          "status": "complete",
+          "count": "13 records"
+        },
+        {
+          "name": "Extract",
+          "detail": "Extract required fields (company_name, headquarters, product_category, company_size, website) from collected profiles. Normalize headquarters to standard city/state format and categorize product categories into standardized SaaS segments.",
+          "status": "complete",
+          "count": "81 fields"
+        },
+        {
+          "name": "Clean",
+          "detail": "Clean extracted data by standardizing company names, validating headquarters locations against Indian cities, normalizing employee counts to integer values, and verifying website URLs. Remove duplicates based on company name and headquarters.",
+          "status": "complete",
+          "count": "13 clean"
+        },
+        {
+          "name": "Deduplicate",
+          "detail": "Merge matching records found across multiple sources using company name and headquarters as primary keys. Resolve conflicts by prioritizing sources with most recent employee count data and official company websites.",
+          "status": "complete",
+          "count": "0 dupes"
+        },
+        {
+          "name": "Validate",
+          "detail": "Validate source evidence for each required field by cross-referencing with official company websites, LinkedIn company pages, and government registries. Flag records with missing or unverifiable source evidence.",
+          "status": "complete",
+          "count": "0 valid"
+        },
+        {
+          "name": "Identify gaps",
+          "detail": "Flag records missing any required field or containing conflicting values between sources. Prioritize verification for records with missing headquarters or product category information.",
+          "status": "complete",
+          "count": "5 issues"
+        },
+        {
+          "name": "Verify",
+          "detail": "Targeted verification of flagged records through direct company outreach, additional industry databases, or third-party verification services. Update records with verified information and recalculate confidence scores.",
+          "status": "complete",
+          "count": "0%"
+        },
+        {
+          "name": "Publish",
+          "detail": "Final dataset publishing with audit trail documenting source evidence for each field. Include confidence ratings (85%+ threshold) and last verification timestamp. Export in structured format (CSV/JSON) with provenance citations.",
+          "status": "complete",
+          "count": "13 records"
+        }
+      ],
+      "quality": {
+        "collected": 13,
+        "unique": 13,
+        "validated": 0,
+        "conflicts": 0,
+        "duplicates": 0,
+        "incomplete": 5,
+        "qualified": 0,
+        "needsVerification": 5,
+        "excluded": 8
+      },
+      "records": [],
+      "sources": [
+        {
+          "name": "zoho.com",
+          "domain": "zoho.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "linkedin.com",
+          "domain": "linkedin.com",
+          "type": "Job board",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "chargebee.com",
+          "domain": "chargebee.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "postman.com",
+          "domain": "postman.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "freshworks.com",
+          "domain": "freshworks.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "kaleyra.com",
+          "domain": "kaleyra.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "exotel.com",
+          "domain": "exotel.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "uniphore.com",
+          "domain": "uniphore.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "fractal.ai",
+          "domain": "fractal.ai",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "highradius.com",
+          "domain": "highradius.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        }
+      ],
+      "interventions": [
+        {
+          "time": "3/10/2026, 19:18:27",
+          "title": "Workflow Rerun #2 executed",
+          "detail": "Web search collection completed with Mistral API (mistral-small-latest) for request \"Indian B2B SaaS Companies 50-500 Employees\".",
+          "tone": "accent"
+        },
+        {
+          "time": "3/10/2026, 19:17:56",
+          "title": "Mistral web research and collection complete",
+          "detail": "13 candidate records extracted via Mistral API (mistral-small-latest) with built-in web search across 10 sources.",
+          "tone": "accent"
+        },
+        {
+          "time": "3/10/2026, 19:18:26",
+          "title": "Information gaps & conflicts identified",
+          "detail": "5 records need verification and 0 conflicts detected from cross-source analysis.",
+          "tone": "warning"
+        },
+        {
+          "time": "3/10/2026, 19:18:26",
+          "title": "Adaptive research executed",
+          "detail": "Mistral targeted web search recovered evidence for 16 records, improving coverage from 0% to 0%.",
+          "tone": "success"
+        }
+      ],
+      "adaptiveOutcomes": [
+        [
+          "0",
+          "Records qualified"
+        ],
+        [
+          "5",
+          "Needs verification"
+        ],
+        [
+          "8",
+          "Excluded"
+        ],
+        [
+          "0",
+          "Conflicts detected"
+        ]
+      ],
+      "adaptiveSummary": "Adaptive verification conducted targeted web searches for missing constraint fields, improving evidence coverage from 0% to 0% (+16 records). Final: 0 qualified, 5 needs verification, 8 excluded, 0 conflicts.",
+      "comparison": {
+        "previousRunId": "RUN-DR-5380-v1",
+        "previousRunNumber": 1,
+        "recordsDelta": -2,
+        "validatedDelta": 0,
+        "conflictsDelta": 0,
+        "coverageDelta": 0,
+        "qualityDelta": 0,
+        "summary": "Run 2 executed real collection: 13 collected, 13 unique, +0 validated, 0 conflicts."
+      }
+    },
+    {
+      "id": "RUN-DR-7322-v1",
+      "requestId": "DR-7322",
+      "runNumber": 1,
+      "requestName": "Indian SaaS Hiring Data Collection",
+      "originalPrompt": "Find Indian SaaS companies currently hiring software engineers. Include company name, open roles, location, company size, and source.",
+      "status": "Completed",
+      "createdAt": "3/10/2026, 19:13:34",
+      "completedAt": "3/10/2026, 19:14:00",
+      "understanding": {
+        "objective": "Collect current hiring data for software engineer roles at Indian SaaS companies",
+        "target": "Software Engineer job openings at SaaS companies",
+        "geography": "India",
+        "industry": "SaaS",
+        "constraints": [
+          "Currently hiring",
+          "Software Engineer roles",
+          "Indian companies",
+          "SaaS domain"
+        ],
+        "structuredConstraints": [
+          {
+            "field": "role",
+            "operator": "contains",
+            "value": "Software Engineer",
+            "hard": true
+          },
+          {
+            "field": "location",
+            "operator": "contains",
+            "value": "India",
+            "hard": true
+          },
+          {
+            "field": "industry",
+            "operator": "equals",
+            "value": "SaaS",
+            "hard": true
+          },
+          {
+            "field": "hiring_status",
+            "operator": "equals",
+            "value": "active",
+            "hard": true
+          }
+        ],
+        "requiredFields": [
+          "Company Name",
+          "Open Roles",
+          "Location",
+          "Company Size",
+          "Source"
+        ],
+        "optionalFields": [],
+        "freshness": "Current hiring status (last 30 days)",
+        "searchIntent": "Enterprise talent acquisition and market intelligence for Indian SaaS hiring trends"
+      },
+      "blueprintStages": [
+        {
+          "name": "Discover",
+          "detail": "Identify primary sources for Indian SaaS hiring data including job boards (LinkedIn Jobs, Indeed, AngelList), company career pages, SaaS-specific job platforms (SaaSHub, RemoteOK), and Indian SaaS association directories (SAI, iSPIRT). Prioritize sources with API access or structured data feeds.",
+          "status": "complete",
+          "count": "10 sources"
+        },
+        {
+          "name": "Collect",
+          "detail": "Gather candidate job postings from identified sources using role-specific keywords ('Software Engineer', 'SDE', 'Backend Engineer') and geographic filters (India). Apply freshness filters to capture only active postings from the last 30 days.",
+          "status": "complete",
+          "count": "9 records"
+        },
+        {
+          "name": "Extract",
+          "detail": "Systematically extract required fields from each job posting: Company Name (from job title/description), Open Roles (role title and count), Location (city/state), Company Size (employee count range), and Source URL. Handle nested data structures (e.g., multiple roles per posting).",
+          "status": "complete",
+          "count": "56 fields"
+        },
+        {
+          "name": "Clean",
+          "detail": "Normalize extracted data: Standardize company names (resolve aliases like 'Freshworks' vs 'Freshdesk'), normalize locations (e.g., 'Bangalore' → 'Bengaluru'), standardize company size ranges (e.g., '100-250' → '101-250'), and clean role titles (e.g., 'SDE II' → 'Software Engineer II').",
+          "status": "complete",
+          "count": "9 clean"
+        },
+        {
+          "name": "Deduplicate",
+          "detail": "Merge duplicate records across sources using company name and role title as composite keys. Resolve conflicts by prioritizing sources with direct company career pages over third-party aggregators.",
+          "status": "complete",
+          "count": "0 dupes"
+        },
+        {
+          "name": "Validate",
+          "detail": "Verify source evidence for each record by cross-checking company career pages against job postings. Confirm active hiring status by checking for recent posting dates or application portals. Flag records with missing or unverifiable sources.",
+          "status": "complete",
+          "count": "0 valid"
+        },
+        {
+          "name": "Identify gaps",
+          "detail": "Audit records for missing required fields (e.g., company size not specified) or conflicting values (e.g., different locations for same company). Flag records requiring targeted verification.",
+          "status": "complete",
+          "count": "2 issues"
+        },
+        {
+          "name": "Verify",
+          "detail": "Conduct targeted verification for flagged records by visiting company career pages directly or contacting company HR for confirmation. Update records with verified data and adjust confidence ratings accordingly.",
+          "status": "complete",
+          "count": "0%"
+        },
+        {
+          "name": "Publish",
+          "detail": "Generate final structured dataset with confidence ratings (85%+ threshold) and source citations for each record. Include audit trail documenting collection methodology, source prioritization, and verification steps. Export in structured format (CSV/JSON) with metadata.",
+          "status": "complete",
+          "count": "9 records"
+        }
+      ],
+      "executedStages": [
+        {
+          "name": "Discover",
+          "detail": "Identify primary sources for Indian SaaS hiring data including job boards (LinkedIn Jobs, Indeed, AngelList), company career pages, SaaS-specific job platforms (SaaSHub, RemoteOK), and Indian SaaS association directories (SAI, iSPIRT). Prioritize sources with API access or structured data feeds.",
+          "status": "complete",
+          "count": "10 sources"
+        },
+        {
+          "name": "Collect",
+          "detail": "Gather candidate job postings from identified sources using role-specific keywords ('Software Engineer', 'SDE', 'Backend Engineer') and geographic filters (India). Apply freshness filters to capture only active postings from the last 30 days.",
+          "status": "complete",
+          "count": "9 records"
+        },
+        {
+          "name": "Extract",
+          "detail": "Systematically extract required fields from each job posting: Company Name (from job title/description), Open Roles (role title and count), Location (city/state), Company Size (employee count range), and Source URL. Handle nested data structures (e.g., multiple roles per posting).",
+          "status": "complete",
+          "count": "56 fields"
+        },
+        {
+          "name": "Clean",
+          "detail": "Normalize extracted data: Standardize company names (resolve aliases like 'Freshworks' vs 'Freshdesk'), normalize locations (e.g., 'Bangalore' → 'Bengaluru'), standardize company size ranges (e.g., '100-250' → '101-250'), and clean role titles (e.g., 'SDE II' → 'Software Engineer II').",
+          "status": "complete",
+          "count": "9 clean"
+        },
+        {
+          "name": "Deduplicate",
+          "detail": "Merge duplicate records across sources using company name and role title as composite keys. Resolve conflicts by prioritizing sources with direct company career pages over third-party aggregators.",
+          "status": "complete",
+          "count": "0 dupes"
+        },
+        {
+          "name": "Validate",
+          "detail": "Verify source evidence for each record by cross-checking company career pages against job postings. Confirm active hiring status by checking for recent posting dates or application portals. Flag records with missing or unverifiable sources.",
+          "status": "complete",
+          "count": "0 valid"
+        },
+        {
+          "name": "Identify gaps",
+          "detail": "Audit records for missing required fields (e.g., company size not specified) or conflicting values (e.g., different locations for same company). Flag records requiring targeted verification.",
+          "status": "complete",
+          "count": "2 issues"
+        },
+        {
+          "name": "Verify",
+          "detail": "Conduct targeted verification for flagged records by visiting company career pages directly or contacting company HR for confirmation. Update records with verified data and adjust confidence ratings accordingly.",
+          "status": "complete",
+          "count": "0%"
+        },
+        {
+          "name": "Publish",
+          "detail": "Generate final structured dataset with confidence ratings (85%+ threshold) and source citations for each record. Include audit trail documenting collection methodology, source prioritization, and verification steps. Export in structured format (CSV/JSON) with metadata.",
+          "status": "complete",
+          "count": "9 records"
+        }
+      ],
+      "quality": {
+        "collected": 9,
+        "unique": 9,
+        "validated": 0,
+        "conflicts": 0,
+        "duplicates": 0,
+        "incomplete": 2,
+        "qualified": 0,
+        "needsVerification": 2,
+        "excluded": 7
+      },
+      "records": [],
+      "sources": [
+        {
+          "name": "linkedin.com",
+          "domain": "linkedin.com",
+          "type": "Job board",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "freshworks.com",
+          "domain": "freshworks.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "chargebee.com",
+          "domain": "chargebee.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "browserstack.com",
+          "domain": "browserstack.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "unacademy.com",
+          "domain": "unacademy.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "groww.in",
+          "domain": "groww.in",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "careers.zohocorp.com",
+          "domain": "careers.zohocorp.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "careers.swiggy.com",
+          "domain": "careers.swiggy.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "postman.com",
+          "domain": "postman.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        },
+        {
+          "name": "zoho.com",
+          "domain": "zoho.com",
+          "type": "Primary",
+          "records": 1,
+          "reliability": 99,
+          "checked": "Just now"
+        }
+      ],
+      "interventions": [
+        {
+          "time": "3/10/2026, 19:13:34",
+          "title": "Mistral web research and collection complete",
+          "detail": "9 candidate records extracted via Mistral API (mistral-small-latest) with built-in web search across 10 sources.",
+          "tone": "accent"
+        },
+        {
+          "time": "3/10/2026, 19:14:00",
+          "title": "Information gaps & conflicts identified",
+          "detail": "2 records need verification and 0 conflicts detected from cross-source analysis.",
+          "tone": "warning"
+        },
+        {
+          "time": "3/10/2026, 19:14:00",
+          "title": "Adaptive research executed",
+          "detail": "Mistral targeted web search recovered evidence for 14 records, improving coverage from 0% to 0%.",
+          "tone": "success"
+        }
+      ],
+      "adaptiveOutcomes": [
+        [
+          "0",
+          "Records qualified"
+        ],
+        [
+          "2",
+          "Needs verification"
+        ],
+        [
+          "7",
+          "Excluded"
+        ],
+        [
+          "0",
+          "Conflicts detected"
+        ]
+      ],
+      "adaptiveSummary": "Adaptive verification conducted targeted web searches for missing constraint fields, improving evidence coverage from 0% to 0% (+14 records). Final: 0 qualified, 2 needs verification, 7 excluded, 0 conflicts."
+    },
     {
       "id": "RUN-DR-2322-v1",
       "requestId": "DR-2322",
@@ -296,1711 +934,20 @@
         "collected": 14,
         "unique": 14,
         "validated": 1,
+        "conflicts": 0,
         "duplicates": 0,
         "incomplete": 6,
-        "conflicts": 0,
         "qualified": 1,
         "needsVerification": 6,
         "excluded": 7
       },
-      "records": [
-        {
-          "id": "R-001",
-          "entityName": "Chargebee",
-          "company": "Chargebee",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "501-1000 employees",
-          "source": "chargebee.com",
-          "confidence": 96,
-          "status": "Incomplete",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Excluded",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Chargebee",
-              "source": "chargebee.com",
-              "url": "https://www.chargebee.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Chargebee is a subscription management and billing platform for SaaS and B2B companies.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Chennai, Tamil Nadu, India",
-              "source": "chargebee.com",
-              "url": "https://www.chargebee.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Chennai, India, with offices in the US and Europe.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "Subscription Management and Billing",
-              "source": "chargebee.com",
-              "url": "https://www.chargebee.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Chargebee is a subscription management and billing platform for SaaS and B2B companies.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "501-1000 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/chargebee/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Chargebee has over 500 employees globally.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://www.chargebee.com",
-              "source": "chargebee.com",
-              "url": "https://www.chargebee.com",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of Chargebee.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "company_size",
-              "value": "501-1000 employees",
-              "source": "LinkedIn",
-              "url": "https://www.linkedin.com/company/chargebee/",
-              "retrieved": "3/10/2026, 19:04:02",
-              "snippet": "501-1000 employees on LinkedIn.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Chargebee",
-            "Headquarters": "Chennai, Tamil Nadu, India",
-            "Product category": null,
-            "Company size": "Chargebee",
-            "Website": null,
-            "Source": "chargebee.com",
-            "Source URL": "https://www.chargebee.com/company/",
-            "company_size": "501-1000 employees"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 95,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 78,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(95%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(78%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Company size": "DIRECT"
-            }
-          },
-          "qualificationReason": "company size: 501-1000 employees does not satisfy between 50 to 500 employees",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "501-1000 employees",
-                "normalizedValue": 501,
-                "result": "FAIL",
-                "reason": "OUTSIDE_RANGE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Chennai, Tamil Nadu, India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-002",
-          "entityName": "Freshworks",
-          "company": "Freshworks",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "5001-10000 employees",
-          "source": "freshworks.com",
-          "confidence": 96,
-          "status": "Incomplete",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Excluded",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Freshworks",
-              "source": "freshworks.com",
-              "url": "https://www.freshworks.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Freshworks is a global SaaS company that develops and delivers AI-powered software for businesses of all sizes.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Chennai, Tamil Nadu, India",
-              "source": "freshworks.com",
-              "url": "https://www.freshworks.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Chennai, India, with offices worldwide.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "AI-Powered Business Software",
-              "source": "freshworks.com",
-              "url": "https://www.freshworks.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Freshworks develops AI-powered software for customer service, IT service management, and CRM.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "5001-10000 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/freshworks-inc-/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Freshworks employs over 5,000 people globally.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://www.freshworks.com",
-              "source": "freshworks.com",
-              "url": "https://www.freshworks.com",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of Freshworks.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "company_size",
-              "value": "5001-10000 employees",
-              "source": "LinkedIn",
-              "url": "https://www.linkedin.com/company/freshworks/",
-              "retrieved": "3/10/2026, 19:04:02",
-              "snippet": "5001-10000 employees on LinkedIn.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Freshworks",
-            "Headquarters": "Chennai, Tamil Nadu, India",
-            "Product category": null,
-            "Company size": "Freshworks",
-            "Website": null,
-            "Source": "freshworks.com",
-            "Source URL": "https://www.freshworks.com/company/",
-            "company_size": "5001-10000 employees"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 95,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 78,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(95%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(78%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Company size": "DIRECT"
-            }
-          },
-          "qualificationReason": "company size: 5001-10000 employees does not satisfy between 50 to 500 employees",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "5001-10000 employees",
-                "normalizedValue": 5001,
-                "result": "FAIL",
-                "reason": "OUTSIDE_RANGE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Chennai, Tamil Nadu, India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-003",
-          "entityName": "Postman",
-          "company": "Postman",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "501-1000 employees",
-          "source": "postman.com",
-          "confidence": 96,
-          "status": "Incomplete",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Excluded",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Postman",
-              "source": "postman.com",
-              "url": "https://www.postman.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Postman is a leading API platform for developers and businesses.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Bengaluru, Karnataka, India",
-              "source": "postman.com",
-              "url": "https://www.postman.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Bengaluru, India, with offices in the US and other countries.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "API Platform",
-              "source": "postman.com",
-              "url": "https://www.postman.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Postman provides a platform for API development, testing, and monitoring.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "501-1000 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/postman-inc-/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Postman employs over 500 people globally.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://www.postman.com",
-              "source": "postman.com",
-              "url": "https://www.postman.com",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of Postman.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "company_size",
-              "value": "501-1000 employees",
-              "source": "LinkedIn",
-              "url": "https://www.linkedin.com/company/postman-inc/",
-              "retrieved": "3/10/2026, 19:04:02",
-              "snippet": "501-1000 employees on LinkedIn.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Postman",
-            "Headquarters": "Bengaluru, Karnataka, India",
-            "Product category": null,
-            "Company size": "Postman",
-            "Website": null,
-            "Source": "postman.com",
-            "Source URL": "https://www.postman.com/company/",
-            "company_size": "501-1000 employees"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 95,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 78,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(95%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(78%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Company size": "DIRECT"
-            }
-          },
-          "qualificationReason": "company size: 501-1000 employees does not satisfy between 50 to 500 employees",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "501-1000 employees",
-                "normalizedValue": 501,
-                "result": "FAIL",
-                "reason": "OUTSIDE_RANGE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Bengaluru, Karnataka, India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-004",
-          "entityName": "Zoho Corporation",
-          "company": "Zoho Corporation",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "10000+ employees",
-          "source": "zoho.com",
-          "confidence": 87,
-          "status": "Incomplete",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Excluded",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Zoho Corporation",
-              "source": "zoho.com",
-              "url": "https://www.zoho.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Zoho Corporation is a global SaaS company offering a suite of online productivity tools.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Chennai, Tamil Nadu, India",
-              "source": "zoho.com",
-              "url": "https://www.zoho.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Chennai, India, with offices worldwide.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "Productivity and Business Software",
-              "source": "zoho.com",
-              "url": "https://www.zoho.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Zoho offers a suite of online productivity tools, including CRM, email, and collaboration software.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "10001+ employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/zoho-corporation/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Zoho employs over 10,000 people globally.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://www.zoho.com",
-              "source": "zoho.com",
-              "url": "https://www.zoho.com",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of Zoho Corporation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "company_size",
-              "value": "10000+ employees",
-              "source": "LinkedIn",
-              "url": "https://www.linkedin.com/company/zoho-corporation/",
-              "retrieved": "3/10/2026, 19:04:02",
-              "snippet": "10000+ employees on LinkedIn.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Zoho Corporation",
-            "Headquarters": "Chennai, Tamil Nadu, India",
-            "Product category": null,
-            "Company size": "Zoho Corporation",
-            "Website": null,
-            "Source": "zoho.com",
-            "Source URL": "https://www.zoho.com/company/",
-            "company_size": "10000+ employees"
-          },
-          "conflicts": [],
-          "reliabilityScore": 87,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 65,
-            "sourceQuality": 83,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 77,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(65%) + 0.20*Src(83%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(77%)",
-            "summary": "High reliability: Strong direct evidence from secondary source with full required-field support.",
-            "directnessMap": {
-              "Company size": "INDIRECT"
-            }
-          },
-          "qualificationReason": "company size: 10000+ employees does not satisfy between 50 to 500 employees",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "10000+ employees",
-                "normalizedValue": 10000,
-                "result": "FAIL",
-                "reason": "OUTSIDE_RANGE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Chennai, Tamil Nadu, India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-005",
-          "entityName": "Khatabook",
-          "company": "Khatabook",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "251-500 employees",
-          "source": "khatabook.com",
-          "confidence": 96,
-          "status": "Verified",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Qualified",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Khatabook",
-              "source": "khatabook.com",
-              "url": "https://www.khatabook.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Khatabook is a digital ledger and B2B commerce platform for small businesses in India.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Bengaluru, Karnataka, India",
-              "source": "khatabook.com",
-              "url": "https://www.khatabook.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Bengaluru, India.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "Digital Ledger and B2B Commerce",
-              "source": "khatabook.com",
-              "url": "https://www.khatabook.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Khatabook provides a digital ledger and B2B commerce platform for small businesses.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "251-500 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/khatabook/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Khatabook employs between 251 and 500 people.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://www.khatabook.com",
-              "source": "khatabook.com",
-              "url": "https://www.khatabook.com",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of Khatabook.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "company_size",
-              "value": "251-500 employees",
-              "source": "LinkedIn",
-              "url": "https://www.linkedin.com/company/khatabook/",
-              "retrieved": "3/10/2026, 19:04:02",
-              "snippet": "251-500 employees on LinkedIn.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Khatabook",
-            "Headquarters": "Bengaluru, Karnataka, India",
-            "Product category": null,
-            "Company size": "Khatabook",
-            "Website": null,
-            "Source": "khatabook.com",
-            "Source URL": "https://www.khatabook.com/company/",
-            "company_size": "251-500 employees"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 95,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 78,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(95%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(78%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Company size": "DIRECT"
-            }
-          },
-          "qualificationReason": "All qualification constraints satisfied with verified source evidence.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "251-500 employees",
-                "normalizedValue": 251,
-                "result": "PASS",
-                "reason": "WITHIN_RANGE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Bengaluru, Karnataka, India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-006",
-          "entityName": "Uniphore",
-          "company": "Uniphore",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "1001-5000 employees",
-          "source": "uniphore.com",
-          "confidence": 96,
-          "status": "Incomplete",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Excluded",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Uniphore",
-              "source": "uniphore.com",
-              "url": "https://www.uniphore.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Uniphore is a conversational AI company providing automation solutions for enterprises.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Palo Alto, California, USA (Indian R&D Center: Bengaluru, Karnataka, India)",
-              "source": "uniphore.com",
-              "url": "https://www.uniphore.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Palo Alto, USA, with a major R&D center in Bengaluru, India.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "Conversational AI and Automation",
-              "source": "uniphore.com",
-              "url": "https://www.uniphore.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Uniphore provides conversational AI and automation solutions for enterprises.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "501-1000 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/uniphore/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Uniphore employs over 500 people globally.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://www.uniphore.com",
-              "source": "uniphore.com",
-              "url": "https://www.uniphore.com",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of Uniphore.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "company_size",
-              "value": "1001-5000 employees",
-              "source": "LinkedIn",
-              "url": "https://www.linkedin.com/company/uniphore/",
-              "retrieved": "3/10/2026, 19:04:02",
-              "snippet": "1001-5000 employees on LinkedIn.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Uniphore",
-            "Headquarters": "Palo Alto, California, USA (Indian R&D Center: Bengaluru, Karnataka, India)",
-            "Product category": null,
-            "Company size": "Uniphore",
-            "Website": null,
-            "Source": "uniphore.com",
-            "Source URL": "https://www.uniphore.com/company/",
-            "company_size": "1001-5000 employees"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 95,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 78,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(95%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(78%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Company size": "DIRECT"
-            }
-          },
-          "qualificationReason": "company size: 1001-5000 employees does not satisfy between 50 to 500 employees",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "1001-5000 employees",
-                "normalizedValue": 1001,
-                "result": "FAIL",
-                "reason": "OUTSIDE_RANGE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Palo Alto, California, USA (Indian R&D Center: Bengaluru, Karnataka, India)",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-007",
-          "entityName": "Fractal Analytics",
-          "company": "Fractal Analytics",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "10000+ employees",
-          "source": "fractal.ai",
-          "confidence": 87,
-          "status": "Incomplete",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Excluded",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Fractal Analytics",
-              "source": "fractal.ai",
-              "url": "https://www.fractal.ai/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Fractal Analytics is a global AI and analytics company serving Fortune 500 enterprises.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Mumbai, Maharashtra, India",
-              "source": "fractal.ai",
-              "url": "https://www.fractal.ai/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Mumbai, India, with offices worldwide.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "AI and Analytics",
-              "source": "fractal.ai",
-              "url": "https://www.fractal.ai/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Fractal provides AI-driven analytics and decision-making solutions for enterprises.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "3001-5000 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/fractalanalytics/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Fractal employs between 3,001 and 5,000 people globally.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://www.fractal.ai",
-              "source": "fractal.ai",
-              "url": "https://www.fractal.ai",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of Fractal Analytics.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "company_size",
-              "value": "10000+ employees",
-              "source": "LinkedIn",
-              "url": "https://www.linkedin.com/company/fractalanalytics/",
-              "retrieved": "3/10/2026, 19:04:02",
-              "snippet": "10000+ employees on LinkedIn.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Fractal Analytics",
-            "Headquarters": "Mumbai, Maharashtra, India",
-            "Product category": null,
-            "Company size": "Fractal Analytics",
-            "Website": null,
-            "Source": "fractal.ai",
-            "Source URL": "https://www.fractal.ai/company/",
-            "company_size": "10000+ employees"
-          },
-          "conflicts": [],
-          "reliabilityScore": 87,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 65,
-            "sourceQuality": 83,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 77,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(65%) + 0.20*Src(83%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(77%)",
-            "summary": "High reliability: Strong direct evidence from secondary source with full required-field support.",
-            "directnessMap": {
-              "Company size": "INDIRECT"
-            }
-          },
-          "qualificationReason": "company size: 10000+ employees does not satisfy between 50 to 500 employees",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "10000+ employees",
-                "normalizedValue": 10000,
-                "result": "FAIL",
-                "reason": "OUTSIDE_RANGE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Mumbai, Maharashtra, India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-008",
-          "entityName": "HighRadius",
-          "company": "HighRadius",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "1001-5000 employees",
-          "source": "highradius.com",
-          "confidence": 96,
-          "status": "Incomplete",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Excluded",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "HighRadius",
-              "source": "highradius.com",
-              "url": "https://www.highradius.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "HighRadius is a fintech SaaS company providing AI-powered receivables and treasury management solutions.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Houston, Texas, USA (Indian Development Center: Hyderabad, Telangana, India)",
-              "source": "highradius.com",
-              "url": "https://www.highradius.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Houston, USA, with a major development center in Hyderabad, India.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "Fintech SaaS",
-              "source": "highradius.com",
-              "url": "https://www.highradius.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "HighRadius provides AI-powered receivables and treasury management solutions for enterprises.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "501-1000 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/highradius/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "HighRadius employs over 500 people globally.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://www.highradius.com",
-              "source": "highradius.com",
-              "url": "https://www.highradius.com",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of HighRadius.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "company_size",
-              "value": "1001-5000 employees",
-              "source": "LinkedIn",
-              "url": "https://www.linkedin.com/company/highradius/",
-              "retrieved": "3/10/2026, 19:04:02",
-              "snippet": "1001-5000 employees on LinkedIn.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "HighRadius",
-            "Headquarters": "Houston, Texas, USA (Indian Development Center: Hyderabad, Telangana, India)",
-            "Product category": null,
-            "Company size": "HighRadius",
-            "Website": null,
-            "Source": "highradius.com",
-            "Source URL": "https://www.highradius.com/company/",
-            "company_size": "1001-5000 employees"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 95,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 78,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(95%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(78%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Company size": "DIRECT"
-            }
-          },
-          "qualificationReason": "company size: 1001-5000 employees does not satisfy between 50 to 500 employees",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "1001-5000 employees",
-                "normalizedValue": 1001,
-                "result": "FAIL",
-                "reason": "OUTSIDE_RANGE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Houston, Texas, USA (Indian Development Center: Hyderabad, Telangana, India)",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-009",
-          "entityName": "Kissflow",
-          "company": "Kissflow",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "—",
-          "source": "kissflow.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Kissflow",
-              "source": "kissflow.com",
-              "url": "https://kissflow.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Kissflow is a digital workplace platform providing workflow automation and low-code solutions.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Palo Alto, California, USA (Indian Development Center: Chennai, Tamil Nadu, India)",
-              "source": "kissflow.com",
-              "url": "https://kissflow.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Palo Alto, USA, with a major development center in Chennai, India.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "Digital Workplace and Workflow Automation",
-              "source": "kissflow.com",
-              "url": "https://kissflow.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Kissflow provides a digital workplace platform with workflow automation and low-code solutions.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "251-500 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/kissflow/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Kissflow employs between 251 and 500 people globally.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://kissflow.com",
-              "source": "kissflow.com",
-              "url": "https://kissflow.com",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of Kissflow.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Kissflow",
-            "Headquarters": "Palo Alto, California, USA (Indian Development Center: Chennai, Tamil Nadu, India)",
-            "Product category": null,
-            "Company size": "Kissflow",
-            "Website": null,
-            "Source": "kissflow.com",
-            "Source URL": "https://kissflow.com/company/"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 95,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 75,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(95%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(75%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Company size": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: company_size. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "Kissflow",
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "VALUE_UNPARSEABLE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Palo Alto, California, USA (Indian Development Center: Chennai, Tamil Nadu, India)",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-010",
-          "entityName": "Unacademy",
-          "company": "Unacademy",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "—",
-          "source": "unacademy.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Unacademy",
-              "source": "unacademy.com",
-              "url": "https://unacademy.com/about",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Unacademy is an online learning platform offering educational content and courses.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Bengaluru, Karnataka, India",
-              "source": "unacademy.com",
-              "url": "https://unacademy.com/about",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Bengaluru, India.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "EdTech and Online Learning",
-              "source": "unacademy.com",
-              "url": "https://unacademy.com/about",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Unacademy provides an online learning platform with educational content and courses.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "1001-5000 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/unacademy/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Unacademy employs between 1,001 and 5,000 people.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://unacademy.com",
-              "source": "unacademy.com",
-              "url": "https://www.chargebee.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Verified via web research: https://unacademy.com",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Unacademy",
-            "Headquarters": "Bengaluru, Karnataka, India",
-            "Product category": null,
-            "Company size": "Unacademy",
-            "Website": null,
-            "Source": "unacademy.com",
-            "Source URL": "https://unacademy.com/about"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 94,
-            "sourceAgreement": 98,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 75,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(94%) + 0.10*Agr(98%) + 0.10*Ent(100%) + 0.10*Ext(75%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Company size": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: company_size. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "Unacademy",
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "VALUE_UNPARSEABLE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Bengaluru, Karnataka, India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-011",
-          "entityName": "Postman (API Platform)",
-          "company": "Postman (API Platform)",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "—",
-          "source": "postman.com",
-          "confidence": 86,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Postman",
-              "source": "postman.com",
-              "url": "https://www.postman.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Postman is a leading API platform for developers and businesses.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Bengaluru, Karnataka, India",
-              "source": "postman.com",
-              "url": "https://www.postman.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Bengaluru, India.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "API Platform",
-              "source": "postman.com",
-              "url": "https://www.postman.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Postman provides a platform for API development, testing, and monitoring.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "501-1000 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/postman-inc-/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Postman employs over 500 people globally.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://www.postman.com",
-              "source": "postman.com",
-              "url": "https://www.postman.com",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of Postman.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Postman",
-            "Headquarters": "Bengaluru, Karnataka, India",
-            "Product category": null,
-            "Company size": "Postman (API Platform)",
-            "Website": null,
-            "Source": "postman.com",
-            "Source URL": "https://www.postman.com/company/"
-          },
-          "conflicts": [],
-          "reliabilityScore": 86,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 65,
-            "sourceQuality": 83,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 73,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(65%) + 0.20*Src(83%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(73%)",
-            "summary": "High reliability: Strong direct evidence from secondary source with full required-field support.",
-            "directnessMap": {
-              "Company size": "INDIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: company_size. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "Postman (API Platform)",
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "VALUE_UNPARSEABLE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Bengaluru, Karnataka, India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-012",
-          "entityName": "Zoho Desk",
-          "company": "Zoho Desk",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "—",
-          "source": "zoho.com",
-          "confidence": 86,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Zoho Desk",
-              "source": "zoho.com",
-              "url": "https://www.zoho.com/desk/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Zoho Desk is a cloud-based help desk software for customer support teams.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Chennai, Tamil Nadu, India",
-              "source": "zoho.com",
-              "url": "https://www.zoho.com/desk/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Chennai, India.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "Customer Support Software",
-              "source": "zoho.com",
-              "url": "https://www.zoho.com/desk/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Zoho Desk provides cloud-based help desk software for customer support teams.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "10001+ employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/zoho-corporation/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Zoho employs over 10,000 people globally.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://www.zoho.com/desk/",
-              "source": "zoho.com",
-              "url": "https://www.zoho.com/desk/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of Zoho Desk.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Zoho Desk",
-            "Headquarters": "Chennai, Tamil Nadu, India",
-            "Product category": null,
-            "Company size": "Zoho Desk",
-            "Website": null,
-            "Source": "zoho.com",
-            "Source URL": "https://www.zoho.com/desk/"
-          },
-          "conflicts": [],
-          "reliabilityScore": 86,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 65,
-            "sourceQuality": 83,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 73,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(65%) + 0.20*Src(83%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(73%)",
-            "summary": "High reliability: Strong direct evidence from secondary source with full required-field support.",
-            "directnessMap": {
-              "Company size": "INDIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: company_size. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "Zoho Desk",
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "VALUE_UNPARSEABLE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Chennai, Tamil Nadu, India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-013",
-          "entityName": "Koo",
-          "company": "Koo",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "—",
-          "source": "kooapp.com",
-          "confidence": 94,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Koo",
-              "source": "kooapp.com",
-              "url": "https://kooapp.com/about",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Koo is a social media platform for Indian languages, focusing on B2B and B2C engagement.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Bengaluru, Karnataka, India",
-              "source": "kooapp.com",
-              "url": "https://kooapp.com/about",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Bengaluru, India.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "Social Media Platform",
-              "source": "kooapp.com",
-              "url": "https://kooapp.com/about",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Koo provides a social media platform for Indian languages, enabling B2B and B2C engagement.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "251-500 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/koo-app/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Koo employs between 251 and 500 people.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://kooapp.com",
-              "source": "kooapp.com",
-              "url": "https://www.chargebee.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Verified via web research: https://kooapp.com",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Koo",
-            "Headquarters": "Bengaluru, Karnataka, India",
-            "Product category": null,
-            "Company size": "Koo",
-            "Website": null,
-            "Source": "kooapp.com",
-            "Source URL": "https://kooapp.com/about"
-          },
-          "conflicts": [],
-          "reliabilityScore": 94,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 83,
-            "sourceAgreement": 98,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 75,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(83%) + 0.10*Agr(98%) + 0.10*Ent(100%) + 0.10*Ext(75%)",
-            "summary": "High reliability: Strong direct evidence from secondary source with full required-field support.",
-            "directnessMap": {
-              "Company size": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: company_size. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "Koo",
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "VALUE_UNPARSEABLE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Bengaluru, Karnataka, India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-014",
-          "entityName": "Darwinbox",
-          "company": "Darwinbox",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "—",
-          "source": "darwinbox.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company name",
-              "value": "Darwinbox",
-              "source": "darwinbox.com",
-              "url": "https://www.darwinbox.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Darwinbox is a cloud-based HR software platform for enterprises.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Headquarters",
-              "value": "Hyderabad, Telangana, India",
-              "source": "darwinbox.com",
-              "url": "https://www.darwinbox.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Headquartered in Hyderabad, India.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Product category",
-              "value": "HR Software",
-              "source": "darwinbox.com",
-              "url": "https://www.darwinbox.com/company/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Darwinbox provides a cloud-based HR software platform for enterprises.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Company size",
-              "value": "501-1000 employees",
-              "source": "linkedin.com",
-              "url": "https://www.linkedin.com/company/darwinbox/",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Darwinbox employs over 500 people globally.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Website",
-              "value": "https://www.darwinbox.com",
-              "source": "darwinbox.com",
-              "url": "https://www.darwinbox.com",
-              "retrieved": "3/10/2026, 19:03:58",
-              "snippet": "Official website of Darwinbox.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company name": "Darwinbox",
-            "Headquarters": "Hyderabad, Telangana, India",
-            "Product category": null,
-            "Company size": "Darwinbox",
-            "Website": null,
-            "Source": "darwinbox.com",
-            "Source URL": "https://www.darwinbox.com/company/"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 95,
-            "sourceAgreement": 92,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 75,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(95%) + 0.10*Agr(92%) + 0.10*Ent(100%) + 0.10*Ext(75%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Company size": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: company_size. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "company_size",
-                "operator": "between",
-                "expected": "50 to 500 employees",
-                "actual": "Darwinbox",
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "VALUE_UNPARSEABLE"
-              },
-              {
-                "field": "geography",
-                "operator": "equals",
-                "expected": "India",
-                "actual": "Hyderabad, Telangana, India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        }
-      ],
+      "records": [],
       "sources": [
         {
           "name": "linkedin.com",
           "domain": "linkedin.com",
           "type": "Job board",
-          "records": 22,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -2008,7 +955,7 @@
           "name": "postman.com",
           "domain": "postman.com",
           "type": "Primary",
-          "records": 8,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -2016,7 +963,7 @@
           "name": "zoho.com",
           "domain": "zoho.com",
           "type": "Primary",
-          "records": 8,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -2024,7 +971,7 @@
           "name": "chargebee.com",
           "domain": "chargebee.com",
           "type": "Primary",
-          "records": 6,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -2032,7 +979,7 @@
           "name": "freshworks.com",
           "domain": "freshworks.com",
           "type": "Primary",
-          "records": 4,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -2040,7 +987,7 @@
           "name": "khatabook.com",
           "domain": "khatabook.com",
           "type": "Primary",
-          "records": 4,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -2048,7 +995,7 @@
           "name": "uniphore.com",
           "domain": "uniphore.com",
           "type": "Primary",
-          "records": 4,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -2056,7 +1003,7 @@
           "name": "fractal.ai",
           "domain": "fractal.ai",
           "type": "Primary",
-          "records": 4,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -2064,7 +1011,7 @@
           "name": "highradius.com",
           "domain": "highradius.com",
           "type": "Primary",
-          "records": 4,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -2072,7 +1019,7 @@
           "name": "kissflow.com",
           "domain": "kissflow.com",
           "type": "Primary",
-          "records": 4,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         }
@@ -2294,2050 +1241,48 @@
         "collected": 16,
         "unique": 16,
         "validated": 0,
+        "conflicts": 0,
         "duplicates": 0,
         "incomplete": 16,
-        "conflicts": 0,
         "qualified": 0,
         "needsVerification": 16,
         "excluded": 0
       },
       "records": [
         {
-          "id": "R-001",
-          "entityName": "Candidate Entity 1",
-          "company": "Candidate Entity 1",
-          "role": "—",
-          "location": "India",
-          "experience": "—",
-          "salary": "Not disclosed",
-          "size": "—",
-          "source": "infosys.com",
-          "confidence": 26,
-          "status": "Review",
-          "verificationStatus": "Needs verification",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Candidate Entity 1",
-              "source": "infosys.com",
-              "url": "https://www.infosys.com/careers.html",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Candidate Entity 1 Company: Candidate Entity 1. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Candidate Entity 1",
-            "Role": null,
-            "Location": null,
-            "Experience": null,
-            "Source": "infosys.com",
-            "Source URL": "https://www.infosys.com/careers.html"
-          },
-          "conflicts": [],
-          "reliabilityScore": 26,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 0,
-            "evidenceDirectness": 0,
-            "sourceQuality": 72,
-            "sourceAgreement": 65,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 67,
-            "conflictPenalty": 0,
-            "inferencePenalty": 12,
-            "scoreFormula": "0.30*Req(0%) + 0.20*Dir(0%) + 0.20*Src(72%) + 0.10*Agr(65%) + 0.10*Ent(100%) + 0.10*Ext(67%) - InferPenalty(12)",
-            "summary": "Incomplete evidence: Critical requested fields lack supporting citations (Role, Location).",
-            "directnessMap": {
-              "Role": "MISSING",
-              "Location": "MISSING"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: role, posting_date, status, Role. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "contains Java backend developer",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "India",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [
-              "Role"
-            ],
-            "completenessScore": 50
-          }
-        },
-        {
-          "id": "R-002",
-          "entityName": "Java Backend Developer at Infosys",
-          "company": "Java Backend Developer at Infosys",
-          "role": "Java Backend Developer",
-          "location": "Bangalore, Karnataka",
-          "experience": "3-5 years",
-          "salary": "₹12-20 LPA",
-          "size": "—",
-          "source": "infosys.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Infosys",
-              "source": "Infosys Careers",
-              "url": "https://www.infosys.com/careers.html",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Infosys is hiring a Java Backend Developer in Bangalore with 3-5 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Java Backend Developer",
-              "source": "Infosys Careers",
-              "url": "https://www.infosys.com/careers.html",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Java Backend Developer",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Bangalore, Karnataka",
-              "source": "infosys.com",
-              "url": "https://www.infosys.com/careers.html",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Developer at Infosys Location: Bangalore, Karnataka. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "3-5 years",
-              "source": "infosys.com",
-              "url": "https://www.infosys.com/careers.html",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Developer at Infosys Experience: 3-5 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹12-20 LPA",
-              "source": "infosys.com",
-              "url": "https://www.infosys.com/careers.html",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Developer at Infosys Salary: ₹12-20 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Infosys",
-            "Role": "Java Backend Developer",
-            "Location": "Bangalore, Karnataka",
-            "Experience": "3-5 years",
-            "Salary": "₹12-20 LPA",
-            "Source": "infosys.com",
-            "Source URL": "https://www.infosys.com/careers.html"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 92,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(92%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Java Backend Developer",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "Role family matches BACKEND and required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Bangalore, Karnataka",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-003",
-          "entityName": "Java Backend Engineer at Tata Consultancy Services",
-          "company": "Java Backend Engineer at Tata Consultancy Services",
-          "role": "Java Backend Engineer",
-          "location": "Pune, Maharashtra",
-          "experience": "4-6 years",
-          "salary": "₹15-22 LPA",
-          "size": "—",
-          "source": "tcs.com",
-          "confidence": 89,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Tata Consultancy Services",
-              "source": "TCS Careers",
-              "url": "https://www.tcs.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "TCS is hiring a Java Backend Engineer in Pune with 4-6 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Java Backend Engineer",
-              "source": "TCS Careers",
-              "url": "https://www.tcs.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Java Backend Engineer",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Pune, Maharashtra",
-              "source": "tcs.com",
-              "url": "https://www.tcs.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Engineer at Tata Consultancy Services Location: Pune, Maharashtra. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "4-6 years",
-              "source": "tcs.com",
-              "url": "https://www.tcs.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Engineer at Tata Consultancy Services Experience: 4-6 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹15-22 LPA",
-              "source": "tcs.com",
-              "url": "https://www.tcs.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Engineer at Tata Consultancy Services Salary: ₹15-22 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Tata Consultancy Services",
-            "Role": "Java Backend Engineer",
-            "Location": "Pune, Maharashtra",
-            "Experience": "4-6 years",
-            "Salary": "₹15-22 LPA",
-            "Source": "tcs.com",
-            "Source URL": "https://www.tcs.com/careers"
-          },
-          "conflicts": [],
-          "reliabilityScore": 89,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 72,
-            "sourceAgreement": 65,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 82,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(72%) + 0.10*Agr(65%) + 0.10*Ent(100%) + 0.10*Ext(82%)",
-            "summary": "High reliability: Strong direct evidence from secondary source with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Java Backend Engineer",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "Role family matches BACKEND and required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Pune, Maharashtra",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-004",
-          "entityName": "Backend Developer (Java) at Wipro",
-          "company": "Backend Developer (Java) at Wipro",
-          "role": "Backend Developer (Java)",
-          "location": "Hyderabad, Telangana",
-          "experience": "2-4 years",
-          "salary": "₹10-18 LPA",
-          "size": "—",
-          "source": "careers.wipro.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Wipro",
-              "source": "Wipro Careers",
-              "url": "https://careers.wipro.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Wipro is hiring a Backend Developer (Java) in Hyderabad with 2-4 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Backend Developer (Java)",
-              "source": "Wipro Careers",
-              "url": "https://careers.wipro.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Backend Developer (Java)",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Hyderabad, Telangana",
-              "source": "careers.wipro.com",
-              "url": "https://careers.wipro.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Developer (Java) at Wipro Location: Hyderabad, Telangana. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "2-4 years",
-              "source": "careers.wipro.com",
-              "url": "https://careers.wipro.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Developer (Java) at Wipro Experience: 2-4 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹10-18 LPA",
-              "source": "careers.wipro.com",
-              "url": "https://careers.wipro.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Developer (Java) at Wipro Salary: ₹10-18 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Wipro",
-            "Role": "Backend Developer (Java)",
-            "Location": "Hyderabad, Telangana",
-            "Experience": "2-4 years",
-            "Salary": "₹10-18 LPA",
-            "Source": "careers.wipro.com",
-            "Source URL": "https://careers.wipro.com"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 96,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(96%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Backend Developer (Java)",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "Role family matches BACKEND and required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Hyderabad, Telangana",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-005",
-          "entityName": "Java Developer at HCL",
-          "company": "Java Developer at HCL",
-          "role": "Java Developer",
-          "location": "Noida, Uttar Pradesh",
-          "experience": "3-7 years",
-          "salary": "₹14-24 LPA",
-          "size": "—",
-          "source": "hcltech.com",
-          "confidence": 90,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "HCL Technologies",
-              "source": "HCL Technologies Careers",
-              "url": "https://www.hcltech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "HCL Technologies is hiring a Java Developer in Noida with 3-7 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Java Developer",
-              "source": "HCL Technologies Careers",
-              "url": "https://www.hcltech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Java Developer",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Noida, Uttar Pradesh",
-              "source": "hcltech.com",
-              "url": "https://www.hcltech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Developer at HCL Technologies Location: Noida, Uttar Pradesh. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "3-7 years",
-              "source": "hcltech.com",
-              "url": "https://www.hcltech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Developer at HCL Technologies Experience: 3-7 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹14-24 LPA",
-              "source": "hcltech.com",
-              "url": "https://www.hcltech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Developer at HCL Technologies Salary: ₹14-24 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "HCL Technologies",
-            "Role": "Java Developer",
-            "Location": "Noida, Uttar Pradesh",
-            "Experience": "3-7 years",
-            "Salary": "₹14-24 LPA",
-            "Source": "hcltech.com",
-            "Source URL": "https://www.hcltech.com/careers"
-          },
-          "conflicts": [],
-          "reliabilityScore": 90,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 72,
-            "sourceAgreement": 65,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(72%) + 0.10*Agr(65%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from secondary source with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: role, posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Java Developer",
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "Role family could not be reliably determined from the title. Required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Noida, Uttar Pradesh",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-006",
-          "entityName": "Senior Java Backend Developer at Cognizant",
-          "company": "Senior Java Backend Developer at Cognizant",
-          "role": "Senior Java Backend Developer",
-          "location": "Chennai, Tamil Nadu",
-          "experience": "5+ years",
-          "salary": "₹18-28 LPA",
-          "size": "—",
-          "source": "careers.cognizant.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Cognizant",
-              "source": "Cognizant Careers",
-              "url": "https://careers.cognizant.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Cognizant is hiring a Senior Java Backend Developer in Chennai with 5+ years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Senior Java Backend Developer",
-              "source": "Cognizant Careers",
-              "url": "https://careers.cognizant.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Senior Java Backend Developer",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Chennai, Tamil Nadu",
-              "source": "careers.cognizant.com",
-              "url": "https://careers.cognizant.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Senior Java Backend Developer at Cognizant Location: Chennai, Tamil Nadu. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "5+ years",
-              "source": "careers.cognizant.com",
-              "url": "https://careers.cognizant.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Senior Java Backend Developer at Cognizant Experience: 5+ years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹18-28 LPA",
-              "source": "careers.cognizant.com",
-              "url": "https://careers.cognizant.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Senior Java Backend Developer at Cognizant Salary: ₹18-28 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Cognizant",
-            "Role": "Senior Java Backend Developer",
-            "Location": "Chennai, Tamil Nadu",
-            "Experience": "5+ years",
-            "Salary": "₹18-28 LPA",
-            "Source": "careers.cognizant.com",
-            "Source URL": "https://careers.cognizant.com"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 96,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(96%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Senior Java Backend Developer",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "Role family matches BACKEND and required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Chennai, Tamil Nadu",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-007",
-          "entityName": "Java Backend Engineer at Capgemini",
-          "company": "Java Backend Engineer at Capgemini",
-          "role": "Java Backend Engineer",
-          "location": "Mumbai, Maharashtra",
-          "experience": "4-8 years",
-          "salary": "₹16-25 LPA",
-          "size": "—",
-          "source": "capgemini.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Capgemini",
-              "source": "Capgemini Careers",
-              "url": "https://www.capgemini.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Capgemini is hiring a Java Backend Engineer in Mumbai with 4-8 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Java Backend Engineer",
-              "source": "Capgemini Careers",
-              "url": "https://www.capgemini.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Java Backend Engineer",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Mumbai, Maharashtra",
-              "source": "capgemini.com",
-              "url": "https://www.capgemini.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Engineer at Capgemini Location: Mumbai, Maharashtra. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "4-8 years",
-              "source": "capgemini.com",
-              "url": "https://www.capgemini.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Engineer at Capgemini Experience: 4-8 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹16-25 LPA",
-              "source": "capgemini.com",
-              "url": "https://www.capgemini.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Engineer at Capgemini Salary: ₹16-25 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Capgemini",
-            "Role": "Java Backend Engineer",
-            "Location": "Mumbai, Maharashtra",
-            "Experience": "4-8 years",
-            "Salary": "₹16-25 LPA",
-            "Source": "capgemini.com",
-            "Source URL": "https://www.capgemini.com/careers"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 92,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(92%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Java Backend Engineer",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "Role family matches BACKEND and required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Mumbai, Maharashtra",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-008",
-          "entityName": "Backend Developer (Java/Spring Boot) at Tech Mahindra",
-          "company": "Backend Developer (Java/Spring Boot) at Tech Mahindra",
-          "role": "Backend Developer (Java/Spring Boot)",
-          "location": "Gurugram, Haryana",
-          "experience": "3-6 years",
-          "salary": "₹13-21 LPA",
-          "size": "—",
-          "source": "careers.techmahindra.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Tech Mahindra",
-              "source": "Tech Mahindra Careers",
-              "url": "https://careers.techmahindra.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Tech Mahindra is hiring a Backend Developer (Java/Spring Boot) in Gurugram with 3-6 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Backend Developer (Java/Spring Boot)",
-              "source": "Tech Mahindra Careers",
-              "url": "https://careers.techmahindra.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Backend Developer (Java/Spring Boot)",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Gurugram, Haryana",
-              "source": "careers.techmahindra.com",
-              "url": "https://careers.techmahindra.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Developer (Java/Spring Boot) at Tech Mahindra Location: Gurugram, Haryana. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "3-6 years",
-              "source": "careers.techmahindra.com",
-              "url": "https://careers.techmahindra.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Developer (Java/Spring Boot) at Tech Mahindra Experience: 3-6 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹13-21 LPA",
-              "source": "careers.techmahindra.com",
-              "url": "https://careers.techmahindra.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Developer (Java/Spring Boot) at Tech Mahindra Salary: ₹13-21 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Tech Mahindra",
-            "Role": "Backend Developer (Java/Spring Boot)",
-            "Location": "Gurugram, Haryana",
-            "Experience": "3-6 years",
-            "Salary": "₹13-21 LPA",
-            "Source": "careers.techmahindra.com",
-            "Source URL": "https://careers.techmahindra.com"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 96,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(96%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Backend Developer (Java/Spring Boot)",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "Role family matches BACKEND and required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Gurugram, Haryana",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-009",
-          "entityName": "Java Full Stack Developer at Mindtree",
-          "company": "Java Full Stack Developer at Mindtree",
-          "role": "Java Full Stack Developer",
-          "location": "Bengaluru, Karnataka",
-          "experience": "2-5 years",
-          "salary": "₹11-19 LPA",
-          "size": "—",
-          "source": "mindtree.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Mindtree",
-              "source": "Mindtree Careers",
-              "url": "https://www.mindtree.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Mindtree is hiring a Java Full Stack Developer in Bengaluru with 2-5 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Java Full Stack Developer",
-              "source": "Mindtree Careers",
-              "url": "https://www.mindtree.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Java Full Stack Developer",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Bengaluru, Karnataka",
-              "source": "mindtree.com",
-              "url": "https://www.mindtree.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Full Stack Developer at Mindtree Location: Bengaluru, Karnataka. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "2-5 years",
-              "source": "mindtree.com",
-              "url": "https://www.mindtree.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Full Stack Developer at Mindtree Experience: 2-5 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹11-19 LPA",
-              "source": "mindtree.com",
-              "url": "https://www.mindtree.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Full Stack Developer at Mindtree Salary: ₹11-19 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Mindtree",
-            "Role": "Java Full Stack Developer",
-            "Location": "Bengaluru, Karnataka",
-            "Experience": "2-5 years",
-            "Salary": "₹11-19 LPA",
-            "Source": "mindtree.com",
-            "Source URL": "https://www.mindtree.com/careers"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 92,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(92%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: role, posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Java Full Stack Developer",
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "Role family could not be reliably determined from the title. Required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Bengaluru, Karnataka",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-010",
-          "entityName": "Senior Java Developer at L&T Infotech",
-          "company": "Senior Java Developer at L&T Infotech",
-          "role": "Senior Java Developer",
-          "location": "Pune, Maharashtra",
-          "experience": "5+ years",
-          "salary": "₹17-26 LPA",
-          "size": "—",
-          "source": "lntinfotech.com",
-          "confidence": 90,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "L&T Infotech",
-              "source": "L&T Infotech Careers",
-              "url": "https://www.lntinfotech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "L&T Infotech is hiring a Senior Java Developer in Pune with 5+ years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Senior Java Developer",
-              "source": "L&T Infotech Careers",
-              "url": "https://www.lntinfotech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Senior Java Developer",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Pune, Maharashtra",
-              "source": "lntinfotech.com",
-              "url": "https://www.lntinfotech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Senior Java Developer at L&T Infotech Location: Pune, Maharashtra. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "5+ years",
-              "source": "lntinfotech.com",
-              "url": "https://www.lntinfotech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Senior Java Developer at L&T Infotech Experience: 5+ years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹17-26 LPA",
-              "source": "lntinfotech.com",
-              "url": "https://www.lntinfotech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Senior Java Developer at L&T Infotech Salary: ₹17-26 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "L&T Infotech",
-            "Role": "Senior Java Developer",
-            "Location": "Pune, Maharashtra",
-            "Experience": "5+ years",
-            "Salary": "₹17-26 LPA",
-            "Source": "lntinfotech.com",
-            "Source URL": "https://www.lntinfotech.com/careers"
-          },
-          "conflicts": [],
-          "reliabilityScore": 90,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 72,
-            "sourceAgreement": 65,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(72%) + 0.10*Agr(65%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from secondary source with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: role, posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Senior Java Developer",
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "Role family could not be reliably determined from the title. Required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Pune, Maharashtra",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-011",
-          "entityName": "Java Backend Developer at Mphasis",
-          "company": "Java Backend Developer at Mphasis",
-          "role": "Java Backend Developer",
-          "location": "Bangalore, Karnataka",
-          "experience": "3-6 years",
-          "salary": "₹12-20 LPA",
-          "size": "—",
-          "source": "mphasis.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Mphasis",
-              "source": "Mphasis Careers",
-              "url": "https://www.mphasis.com/careers.html",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Mphasis is hiring a Java Backend Developer in Bangalore with 3-6 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Java Backend Developer",
-              "source": "Mphasis Careers",
-              "url": "https://www.mphasis.com/careers.html",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Java Backend Developer",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Bangalore, Karnataka",
-              "source": "mphasis.com",
-              "url": "https://www.mphasis.com/careers.html",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Developer at Mphasis Location: Bangalore, Karnataka. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "3-6 years",
-              "source": "mphasis.com",
-              "url": "https://www.mphasis.com/careers.html",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Developer at Mphasis Experience: 3-6 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹12-20 LPA",
-              "source": "mphasis.com",
-              "url": "https://www.mphasis.com/careers.html",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Developer at Mphasis Salary: ₹12-20 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Mphasis",
-            "Role": "Java Backend Developer",
-            "Location": "Bangalore, Karnataka",
-            "Experience": "3-6 years",
-            "Salary": "₹12-20 LPA",
-            "Source": "mphasis.com",
-            "Source URL": "https://www.mphasis.com/careers.html"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 92,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(92%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Java Backend Developer",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "Role family matches BACKEND and required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Bangalore, Karnataka",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-012",
-          "entityName": "Backend Engineer (Java) at Hexaware",
-          "company": "Backend Engineer (Java) at Hexaware",
-          "role": "Backend Engineer (Java)",
-          "location": "Navi Mumbai, Maharashtra",
-          "experience": "4-7 years",
-          "salary": "₹14-23 LPA",
-          "size": "—",
-          "source": "careers.hexaware.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Hexaware Technologies",
-              "source": "Hexaware Careers",
-              "url": "https://careers.hexaware.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Hexaware Technologies is hiring a Backend Engineer (Java) in Navi Mumbai with 4-7 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Backend Engineer (Java)",
-              "source": "Hexaware Careers",
-              "url": "https://careers.hexaware.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Backend Engineer (Java)",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Navi Mumbai, Maharashtra",
-              "source": "careers.hexaware.com",
-              "url": "https://careers.hexaware.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Engineer (Java) at Hexaware Technologies Location: Navi Mumbai, Maharashtra. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "4-7 years",
-              "source": "careers.hexaware.com",
-              "url": "https://careers.hexaware.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Engineer (Java) at Hexaware Technologies Experience: 4-7 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹14-23 LPA",
-              "source": "careers.hexaware.com",
-              "url": "https://careers.hexaware.com",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Engineer (Java) at Hexaware Technologies Salary: ₹14-23 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Hexaware Technologies",
-            "Role": "Backend Engineer (Java)",
-            "Location": "Navi Mumbai, Maharashtra",
-            "Experience": "4-7 years",
-            "Salary": "₹14-23 LPA",
-            "Source": "careers.hexaware.com",
-            "Source URL": "https://careers.hexaware.com"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 96,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(96%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Backend Engineer (Java)",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "Role family matches BACKEND and required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Navi Mumbai, Maharashtra",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-013",
-          "entityName": "Java Developer at Zensar",
-          "company": "Java Developer at Zensar",
-          "role": "Java Developer",
-          "location": "Pune, Maharashtra",
-          "experience": "2-4 years",
-          "salary": "₹10-17 LPA",
-          "size": "—",
-          "source": "zensar.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Zensar Technologies",
-              "source": "Zensar Careers",
-              "url": "https://www.zensar.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Zensar Technologies is hiring a Java Developer in Pune with 2-4 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Java Developer",
-              "source": "Zensar Careers",
-              "url": "https://www.zensar.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Java Developer",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Pune, Maharashtra",
-              "source": "zensar.com",
-              "url": "https://www.zensar.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Developer at Zensar Technologies Location: Pune, Maharashtra. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "2-4 years",
-              "source": "zensar.com",
-              "url": "https://www.zensar.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Developer at Zensar Technologies Experience: 2-4 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹10-17 LPA",
-              "source": "zensar.com",
-              "url": "https://www.zensar.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Developer at Zensar Technologies Salary: ₹10-17 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Zensar Technologies",
-            "Role": "Java Developer",
-            "Location": "Pune, Maharashtra",
-            "Experience": "2-4 years",
-            "Salary": "₹10-17 LPA",
-            "Source": "zensar.com",
-            "Source URL": "https://www.zensar.com/careers"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 92,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(92%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: role, posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Java Developer",
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "Role family could not be reliably determined from the title. Required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Pune, Maharashtra",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-014",
-          "entityName": "Senior Backend Developer (Java) at NIIT",
-          "company": "Senior Backend Developer (Java) at NIIT",
-          "role": "Senior Backend Developer (Java)",
-          "location": "Gurugram, Haryana",
-          "experience": "5+ years",
-          "salary": "₹18-27 LPA",
-          "size": "—",
-          "source": "niit-tech.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "NIIT Technologies",
-              "source": "NIIT Technologies Careers",
-              "url": "https://www.niit-tech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "NIIT Technologies is hiring a Senior Backend Developer (Java) in Gurugram with 5+ years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Senior Backend Developer (Java)",
-              "source": "NIIT Technologies Careers",
-              "url": "https://www.niit-tech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Senior Backend Developer (Java)",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Gurugram, Haryana",
-              "source": "niit-tech.com",
-              "url": "https://www.niit-tech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Senior Backend Developer (Java) at NIIT Technologies Location: Gurugram, Haryana. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "5+ years",
-              "source": "niit-tech.com",
-              "url": "https://www.niit-tech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Senior Backend Developer (Java) at NIIT Technologies Experience: 5+ years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹18-27 LPA",
-              "source": "niit-tech.com",
-              "url": "https://www.niit-tech.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Senior Backend Developer (Java) at NIIT Technologies Salary: ₹18-27 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "NIIT Technologies",
-            "Role": "Senior Backend Developer (Java)",
-            "Location": "Gurugram, Haryana",
-            "Experience": "5+ years",
-            "Salary": "₹18-27 LPA",
-            "Source": "niit-tech.com",
-            "Source URL": "https://www.niit-tech.com/careers"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 92,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(92%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Senior Backend Developer (Java)",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "Role family matches BACKEND and required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Gurugram, Haryana",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
-          "id": "R-015",
-          "entityName": "Java Backend Engineer at Birlasoft",
-          "company": "Java Backend Engineer at Birlasoft",
-          "role": "Java Backend Engineer",
-          "location": "Noida, Uttar Pradesh",
-          "experience": "4-6 years",
-          "salary": "₹15-22 LPA",
-          "size": "—",
-          "source": "birlasoft.com",
-          "confidence": 96,
-          "status": "Review",
-          "verificationStatus": "Confirmed",
-          "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Birlasoft",
-              "source": "Birlasoft Careers",
-              "url": "https://www.birlasoft.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Birlasoft is hiring a Java Backend Engineer in Noida with 4-6 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Java Backend Engineer",
-              "source": "Birlasoft Careers",
-              "url": "https://www.birlasoft.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Java Backend Engineer",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Noida, Uttar Pradesh",
-              "source": "birlasoft.com",
-              "url": "https://www.birlasoft.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Engineer at Birlasoft Location: Noida, Uttar Pradesh. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "4-6 years",
-              "source": "birlasoft.com",
-              "url": "https://www.birlasoft.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Engineer at Birlasoft Experience: 4-6 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹15-22 LPA",
-              "source": "birlasoft.com",
-              "url": "https://www.birlasoft.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Java Backend Engineer at Birlasoft Salary: ₹15-22 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            }
-          ],
-          "attributes": {
-            "Company": "Birlasoft",
-            "Role": "Java Backend Engineer",
-            "Location": "Noida, Uttar Pradesh",
-            "Experience": "4-6 years",
-            "Salary": "₹15-22 LPA",
-            "Source": "birlasoft.com",
-            "Source URL": "https://www.birlasoft.com/careers"
-          },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 92,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(92%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
-            }
-          },
-          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Java Backend Engineer",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "Role family matches BACKEND and required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Noida, Uttar Pradesh",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
-        },
-        {
           "id": "R-016",
           "entityName": "Backend Developer (Java) at Sonata Software",
-          "company": "Backend Developer (Java) at Sonata Software",
+          "company": "Sonata Software",
           "role": "Backend Developer (Java)",
           "location": "Bengaluru, Karnataka",
           "experience": "3-5 years",
           "salary": "₹12-20 LPA",
           "size": "—",
           "source": "sonata-software.com",
-          "confidence": 96,
           "status": "Review",
-          "verificationStatus": "Confirmed",
           "qualificationStatus": "Needs verification",
-          "evidence": [
-            {
-              "field": "Company",
-              "value": "Sonata Software",
-              "source": "Sonata Software Careers",
-              "url": "https://www.sonata-software.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Sonata Software is hiring a Backend Developer (Java) in Bengaluru with 3-5 years of experience.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Role",
-              "value": "Backend Developer (Java)",
-              "source": "Sonata Software Careers",
-              "url": "https://www.sonata-software.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Job title: Backend Developer (Java)",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Location",
-              "value": "Bengaluru, Karnataka",
-              "source": "sonata-software.com",
-              "url": "https://www.sonata-software.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Developer (Java) at Sonata Software Location: Bengaluru, Karnataka. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Experience",
-              "value": "3-5 years",
-              "source": "sonata-software.com",
-              "url": "https://www.sonata-software.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Developer (Java) at Sonata Software Experience: 3-5 years. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
-            },
-            {
-              "field": "Salary",
-              "value": "₹12-20 LPA",
-              "source": "sonata-software.com",
-              "url": "https://www.sonata-software.com/careers",
-              "retrieved": "3/10/2026, 19:02:40",
-              "snippet": "Backend Developer (Java) at Sonata Software Salary: ₹12-20 LPA. Verified via official listings and web documentation.",
-              "verification": "Confirmed"
+          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
+          "verificationStatus": "Confirmed",
+          "confidence": 96,
+          "reliabilityScore": 96,
+          "evidenceBreakdown": {
+            "requiredFieldSupport": 100,
+            "evidenceDirectness": 100,
+            "sourceQuality": 92,
+            "sourceAgreement": 85,
+            "freshness": 60,
+            "freshnessStatus": "AGED",
+            "entityConsistency": 100,
+            "extractionReliability": 86,
+            "conflictPenalty": 0,
+            "inferencePenalty": 0,
+            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(92%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
+            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
+            "directnessMap": {
+              "Role": "DIRECT",
+              "Location": "DIRECT"
             }
-          ],
+          },
           "attributes": {
             "Company": "Sonata Software",
             "Role": "Backend Developer (Java)",
@@ -4347,69 +1292,54 @@
             "Source": "sonata-software.com",
             "Source URL": "https://www.sonata-software.com/careers"
           },
-          "conflicts": [],
-          "reliabilityScore": 96,
-          "evidenceBreakdown": {
-            "requiredFieldSupport": 100,
-            "evidenceDirectness": 100,
-            "sourceQuality": 92,
-            "sourceAgreement": 85,
-            "freshness": 60,
-            "freshnessStatus": "AGED",
-            "entityConsistency": 100,
-            "extractionReliability": 86,
-            "conflictPenalty": 0,
-            "inferencePenalty": 0,
-            "scoreFormula": "0.30*Req(100%) + 0.20*Dir(100%) + 0.20*Src(92%) + 0.10*Agr(85%) + 0.10*Ent(100%) + 0.10*Ext(86%)",
-            "summary": "High reliability: Strong direct evidence from primary official with full required-field support.",
-            "directnessMap": {
-              "Role": "DIRECT",
-              "Location": "DIRECT"
+          "evidence": [
+            {
+              "field": "Company",
+              "value": "Sonata Software",
+              "source": "www.sonata-software.com",
+              "url": "https://www.sonata-software.com/careers",
+              "retrieved": "3/10/2026, 19:02:21",
+              "snippet": "Sonata Software is hiring a Backend Developer (Java) in Bengaluru with 3-5 years of experience.",
+              "verification": "Confirmed"
+            },
+            {
+              "field": "Role",
+              "value": "Backend Developer (Java)",
+              "source": "www.sonata-software.com",
+              "url": "https://www.sonata-software.com/careers",
+              "retrieved": "3/10/2026, 19:02:21",
+              "snippet": "Job title: Backend Developer (Java)",
+              "verification": "Confirmed"
+            },
+            {
+              "field": "Location",
+              "value": "Bengaluru, Karnataka",
+              "source": "www.sonata-software.com",
+              "url": "https://www.sonata-software.com/careers",
+              "retrieved": "3/10/2026, 19:02:21",
+              "snippet": "Backend Developer (Java) at Sonata Software Location: Bengaluru, Karnataka. Verified via official listings and web documentation.",
+              "verification": "Confirmed"
+            },
+            {
+              "field": "Experience",
+              "value": "3-5 years",
+              "source": "www.sonata-software.com",
+              "url": "https://www.sonata-software.com/careers",
+              "retrieved": "3/10/2026, 19:02:21",
+              "snippet": "Backend Developer (Java) at Sonata Software Experience: 3-5 years. Verified via official listings and web documentation.",
+              "verification": "Confirmed"
+            },
+            {
+              "field": "Salary",
+              "value": "₹12-20 LPA",
+              "source": "www.sonata-software.com",
+              "url": "https://www.sonata-software.com/careers",
+              "retrieved": "3/10/2026, 19:02:21",
+              "snippet": "Backend Developer (Java) at Sonata Software Salary: ₹12-20 LPA. Verified via official listings and web documentation.",
+              "verification": "Confirmed"
             }
-          },
-          "qualificationReason": "Missing or unverifiable fields: posting_date, status. These fields could not be confirmed from collected sources.",
-          "qualificationDetails": {
-            "constraints": [
-              {
-                "field": "role",
-                "operator": "contains",
-                "expected": "Java backend developer",
-                "actual": "Backend Developer (Java)",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "Role family matches BACKEND and required technology JAVA is present."
-              },
-              {
-                "field": "posting_date",
-                "operator": "greater_than_or_equal",
-                "expected": "greater than or equal 2026-09-03 days",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              },
-              {
-                "field": "location",
-                "operator": "contains",
-                "expected": "India",
-                "actual": "Bengaluru, Karnataka",
-                "normalizedValue": null,
-                "result": "PASS",
-                "reason": "COUNTRY_MATCH: India matches required India"
-              },
-              {
-                "field": "status",
-                "operator": "equals",
-                "expected": "equals active",
-                "actual": null,
-                "normalizedValue": null,
-                "result": "UNKNOWN",
-                "reason": "FIELD_NOT_FOUND"
-              }
-            ],
-            "missingFields": [],
-            "completenessScore": 100
-          }
+          ],
+          "conflicts": []
         }
       ],
       "sources": [
@@ -4417,7 +1347,7 @@
           "name": "infosys.com",
           "domain": "infosys.com",
           "type": "Primary",
-          "records": 6,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -4425,7 +1355,7 @@
           "name": "tcs.com",
           "domain": "tcs.com",
           "type": "Primary",
-          "records": 5,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -4433,7 +1363,7 @@
           "name": "careers.wipro.com",
           "domain": "careers.wipro.com",
           "type": "Primary",
-          "records": 5,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -4441,7 +1371,7 @@
           "name": "hcltech.com",
           "domain": "hcltech.com",
           "type": "Primary",
-          "records": 5,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -4449,7 +1379,7 @@
           "name": "careers.cognizant.com",
           "domain": "careers.cognizant.com",
           "type": "Primary",
-          "records": 5,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -4457,7 +1387,7 @@
           "name": "capgemini.com",
           "domain": "capgemini.com",
           "type": "Primary",
-          "records": 5,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -4465,7 +1395,7 @@
           "name": "careers.techmahindra.com",
           "domain": "careers.techmahindra.com",
           "type": "Primary",
-          "records": 5,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -4473,7 +1403,7 @@
           "name": "mindtree.com",
           "domain": "mindtree.com",
           "type": "Primary",
-          "records": 5,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -4481,7 +1411,7 @@
           "name": "lntinfotech.com",
           "domain": "lntinfotech.com",
           "type": "Primary",
-          "records": 5,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         },
@@ -4489,7 +1419,7 @@
           "name": "mphasis.com",
           "domain": "mphasis.com",
           "type": "Primary",
-          "records": 5,
+          "records": 1,
           "reliability": 99,
           "checked": "Just now"
         }
@@ -9364,7 +6294,7 @@
       "originalPrompt": "Find Indian SaaS companies",
       "status": "Completed",
       "createdAt": "2026-10-03T12:28:41.432Z",
-      "completedAt": "2026-10-03T13:30:12.876Z",
+      "completedAt": "2026-10-03T13:41:38.242Z",
       "understanding": {
         "objective": "Test collection",
         "target": "Companies",

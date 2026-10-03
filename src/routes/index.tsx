@@ -123,7 +123,7 @@ function Index() {
       />
       <section className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
-          label="Active workflows"
+          label="Workflows"
           value={String(data?.activeWorkflowsCount ?? 0)}
           detail={data?.activeWorkflowsCount ? "Workflow currently running" : "All workflows idle"}
         />
@@ -165,8 +165,8 @@ function Index() {
         <aside className="space-y-6">
           <section className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm transition-all duration-200 hover:shadow-md">
             <SectionHeader
-              title="Active workflow"
-              subtitle={`${activeRun?.requestName || "Active collection workflow"} · ${runVersion}`}
+              title="Workflow"
+              subtitle={`${activeRun?.requestName || "Collection workflow"} · ${runVersion}`}
             />
             <div className="p-5">
               <div className="flex items-end justify-between">
